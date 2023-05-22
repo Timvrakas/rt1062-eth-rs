@@ -1,10 +1,3 @@
-//! The starter code slowly blinks the LED, sets up
-//! USB logging, and creates a UART driver using pins
-//! 14 and 15. The UART baud rate is [`UART_BAUD`].
-//!
-//! Despite targeting the Teensy 4.0, this starter code
-//! also works on the Teensy 4.1.
-
 #![no_std]
 #![no_main]
 
@@ -21,9 +14,28 @@ use ral::enet;
 use ral::iomuxc;
 use ral::iomuxc_gpr;
 
-/// Milliseconds to delay before toggling the LED
-/// and writing text outputs.
-const DELAY_MS: u32 = 500;
+fn mdio_write(
+    enet1: &ral::Instance<enet::RegisterBlock, 1>,
+    phyaddr: u8,
+    regaddr: u8,
+    data: u16,
+) {
+    ral::write_reg!(enet,enet1,MMFR,ST:1,OP:1,TA:0, PA:phyaddr as u32, RA:regaddr as u32, DATA:data as u32);
+    while ral::read_reg!(enet,enet1,EIR,MII) == 0{}
+    ral::write_reg!(enet,enet1,EIR,MII:1);
+}
+
+fn mdio_read(
+    enet1: &ral::Instance<enet::RegisterBlock, 1>,
+    phyaddr: u8,
+    regaddr: u8
+)->u16 {
+    ral::write_reg!(enet,enet1,MMFR,ST:1,OP:2,TA:0, PA:phyaddr as u32, RA:regaddr as u32);
+    while ral::read_reg!(enet,enet1,EIR,MII) == 0{}
+    let data = ral::read_reg!(enet,enet1,MMFR,DATA) as u16;
+    ral::write_reg!(enet,enet1,EIR,MII:1);
+    return data;
+}
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -34,17 +46,11 @@ fn main() -> ! {
     // Driver resources that are configured by the board. For more information,
     // see the `board` documentation.
     let board::Resources {
-        // `pins` has objects that represent the physical pins. The object
-        // for pin 13 is `p13`.
-        pins,
         // This is a hardware timer. We'll use it for blocking delays.
         mut gpt1,
         // These are low-level USB resources. We'll pass these to a function
         // that sets up USB logging.
         usb,
-        // This is the GPIO2 port. We need this to configure the LED as a
-        // GPIO output.
-        mut gpio2,
         ..
     } = board::t41(instances);
 
@@ -68,12 +74,9 @@ fn main() -> ! {
     // Configure the PLL for 50MHz
     ral::write_reg!(ccm_analog,ccm_analog1,PLL_ENET_CLR,BYPASS_CLK_SRC:3,ENET2_DIV_SELECT:3,DIV_SELECT:3,POWERDOWN:1);
     ral::write_reg!(ccm_analog,ccm_analog1,PLL_ENET_SET,ENET_25M_REF_EN:1,ENABLE:1,BYPASS:1,DIV_SELECT:1);
-    
+
     // Start the PPL and wait for a lock
-    let mut i = 0;
-    while ral::read_reg!(ccm_analog, ccm_analog1, PLL_ENET_SET, LOCK) == 0 {
-        i += 1;
-    }
+    while ral::read_reg!(ccm_analog, ccm_analog1, PLL_ENET_SET, LOCK) == 0 {}
     ral::write_reg!(ccm_analog,ccm_analog1,PLL_ENET_CLR,BYPASS:1);
 
     // send refclock to pinmux
@@ -119,8 +122,6 @@ fn main() -> ! {
     ral::write_reg!(iomuxc, mux1, ENET_RXERR_SELECT_INPUT,DAISY:1);
     ral::write_reg!(iomuxc, mux1, ENET_IPG_CLK_RMII_SELECT_INPUT, DAISY:1);
 
-
-
     let enet1 = unsafe { enet::ENET1::instance() };
 
     // //need to enable pins
@@ -133,50 +134,35 @@ fn main() -> ! {
     // ral::modify_reg!(enet,enet1,RCR,RMII_MODE:1,MII_MODE:1,LOOP:0,PROM:1); //rmii, no loopback, no MAC filter
     // ral::modify_reg!(enet,enet1,TCR,FDEN:1); //enable full-duplex
     // ral::modify_reg!(enet,enet1,TFWR,STRFWD:1); // store and fwd
-    
 
-    let gpio7 = unsafe {ral::gpio::GPIO7::instance()};
-    
+    let gpio7 = unsafe { ral::gpio::GPIO7::instance() };
+
     // let powerdown_pin = gpio7.output(iomuxc.gpio_b0.p15);
     // let reset_pin = gpio7.output(iomuxc.gpio_b0.p14);
-    ral::modify_reg!(ral::gpio,gpio7,GDIR, |x| x|(1<<14)|(1<<15) );
-    ral::write_reg!(ral::gpio,gpio7,DR_CLEAR,(1<<14)|(1<<15));
+    ral::modify_reg!(ral::gpio, gpio7, GDIR, |x| x | (1 << 14) | (1 << 15));
+    ral::write_reg!(ral::gpio, gpio7, DR_CLEAR, (1 << 14) | (1 << 15));
     delay.block_ms(50);
-    ral::write_reg!(ral::gpio,gpio7,DR_SET, 1<<15 );
+    ral::write_reg!(ral::gpio, gpio7, DR_SET, 1 << 15);
     delay.block_ms(50);
-    ral::write_reg!(ral::gpio,gpio7,DR_SET, 1<<14 );
+    ral::write_reg!(ral::gpio, gpio7, DR_SET, 1 << 14);
     delay.block_ms(50);
 
     ral::write_reg!(enet,enet1,MSCR,MII_SPEED:9);
 
-
-    loop{
-        ral::write_reg!(enet,enet1,MMFR,ST:1,OP:1,TA:0,PA:0,RA:0x18,DATA:0x492);
-        // mdio_write(0, 0x18, 0x492); // force LED on
-		delay.block_ms(500);
-		// mdio_write(0, 0x18, 0x490); // force LED off
-        ral::write_reg!(enet,enet1,MMFR,ST:1,OP:1,TA:0,PA:0,RA:0x18,DATA:0x490);
-        delay.block_ms(500);
-    }
-
-
-    // When this returns, you can use the `log` crate to write text
-    // over USB. Use either `screen` (macOS, Linux) or PuTTY (Windows)
-    // to visualize the messages from this example.
     bsp::LoggingFrontend::default_log().register_usb(usb);
 
-    // This configures the LED as a GPIO output.
-    let led = board::led(&mut gpio2, pins.p13);
-
-    let mut counter: u32 = 0;
     loop {
-        led.toggle();
-        log::info!("Hello from the USB logger! The count is {counter}");
-        log::info!("PLL lock took: {i} loops");
+        mdio_write(&enet1, 0, 0x18, 0x492); // force LED on
+        delay.block_ms(500);
+        mdio_write(&enet1, 0, 0x18, 0x490); // force LED off
+        delay.block_ms(500);
 
-        delay.block_ms(DELAY_MS);
-        counter = counter.wrapping_add(1);
+        let rcsr = mdio_read(&enet1, 0, 0x17);
+        let ledcr = mdio_read(&enet1, 0, 0x18);
+        let phycr = mdio_read(&enet1, 0, 0x19);
+        log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
     }
+
 }
 
 // We're responsible for configuring our timers.

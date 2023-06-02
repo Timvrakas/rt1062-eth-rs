@@ -14,6 +14,20 @@ use ral::enet;
 use ral::iomuxc;
 use ral::iomuxc_gpr;
 
+#[repr(C)]
+pub struct RxDescriptor {
+    len: u16,
+    flags: u16,
+    buffer: u32
+}
+
+#[repr(C)]
+pub struct RxDescriptor {
+    len: u16,
+    flags: u16,
+    buffer: u32
+}
+
 fn mdio_write(
     enet1: &ral::Instance<enet::RegisterBlock, 1>,
     phyaddr: u8,

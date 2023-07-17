@@ -1,5 +1,5 @@
 [package]
-name = "hello-world"
+name = "rt1062-eth-rs"
 version = "0.1.0"
 authors = ["Tim Vrakas <tim@vrakaslabs.net>"]
 edition = "2021"

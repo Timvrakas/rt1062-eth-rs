@@ -2,8 +2,13 @@
 #![no_main]
 
 use bsp::board;
+// use bsp::ral::usbphy::RX;
 use teensy4_bsp as bsp;
 use teensy4_panic as _;
+
+use core::mem::size_of as size_of;
+use core::ptr::null;
+use core::ptr::addr_of;
 
 use bsp::hal::timer::Blocking;
 
@@ -15,18 +20,45 @@ use ral::iomuxc;
 use ral::iomuxc_gpr;
 
 #[repr(C)]
+#[derive(Clone,Copy)]
 pub struct RxDescriptor {
     len: u16,
     flags: u16,
-    buffer: u32
+    buffer: *const u32
 }
 
 #[repr(C)]
-pub struct RxDescriptor {
+#[derive(Clone, Copy)]
+pub struct TxDescriptor {
     len: u16,
     flags: u16,
-    buffer: u32
+    buffer: *const u32
 }
+
+#[repr(C)]
+#[repr(align(64))]
+pub struct RxDT {
+    rxdt: [RxDescriptor; 12]
+}
+
+#[repr(C)]
+#[repr(align(64))]
+pub struct TxDT {
+    txdt: [TxDescriptor; 10]
+}
+
+#[repr(C)]
+#[repr(align(32))]
+pub struct Bufs {
+    tx: [[u32; 128];10],
+    rx: [[u32; 128];12],
+}
+
+static mut RXDT: RxDT  = RxDT{rxdt:[RxDescriptor{len:0, flags:0x8000, buffer:null()};12]};
+static mut TXDT: TxDT  = TxDT{txdt:[TxDescriptor{len:0, flags:0, buffer:null()};10]}; 
+
+static mut BUFS: Bufs = Bufs{tx:[[0x0;128];10],rx:[[0x0;128];12]};
+
 
 fn mdio_write(
     enet1: &ral::Instance<enet::RegisterBlock, 1>,
@@ -165,16 +197,76 @@ fn main() -> ! {
 
     bsp::LoggingFrontend::default_log().register_usb(usb);
 
-    loop {
-        mdio_write(&enet1, 0, 0x18, 0x492); // force LED on
-        delay.block_ms(500);
-        mdio_write(&enet1, 0, 0x18, 0x490); // force LED off
-        delay.block_ms(500);
+    delay.block_ms(2000);
 
-        let rcsr = mdio_read(&enet1, 0, 0x17);
-        let ledcr = mdio_read(&enet1, 0, 0x18);
-        let phycr = mdio_read(&enet1, 0, 0x19);
-        log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
+	mdio_write(&enet1, 0, 0x18, 0x0280); // LED shows link status, active high
+	mdio_write(&enet1, 0, 0x17, 0x0081); // config for 50 MHz clock input
+
+    let rcsr = mdio_read(&enet1, 0, 0x17);
+    let ledcr = mdio_read(&enet1, 0, 0x18);
+    let phycr = mdio_read(&enet1, 0, 0x19);
+    log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
+
+
+    // loop {
+    //     // mdio_write(&enet1, 0, 0x18, 0x492); // force LED on
+    //     // delay.block_ms(500);
+    //     // mdio_write(&enet1, 0, 0x18, 0x490); // force LED off
+    //     // delay.block_ms(500);
+    // }
+
+    unsafe{
+        TXDT.txdt[1].len = 0;
+        RXDT.rxdt[1].len = 0;
+    }
+
+    let rx_desc_size: usize = size_of::<RxDescriptor>();
+    log::info!("rx_desc_size = {rx_desc_size}");
+
+    let tx_desc_size: usize = size_of::<TxDescriptor>();
+    log::info!("tx_desc_size = {tx_desc_size}");
+
+    let txdt_size: usize = size_of::<TxDT>();
+    log::info!("txdt_size = {txdt_size}");
+
+    let rxdt_size: usize = size_of::<RxDT>();
+    log::info!("rxdt_size = {rxdt_size}");
+
+    let buf_size: usize = size_of::<Bufs>();
+    log::info!("TX+RX Buffer size = {buf_size}");
+
+    // Initalize all descriptor tables
+    unsafe{
+        for (idx, element) in TXDT.txdt.iter_mut().enumerate() {
+            element.buffer = addr_of!(BUFS.tx[idx][0]);
+        }
+
+        TXDT.txdt.last_mut().unwrap().flags = 0xA000;
+
+        for (idx, element) in RXDT.rxdt.iter_mut().enumerate() {
+            element.buffer = addr_of!(BUFS.rx[idx][0]);
+        }
+
+        RXDT.rxdt.last_mut().unwrap().flags = 0x2000;
+    }
+
+    //Print the details of all descriptor tables
+    unsafe{
+        for(idx,el) in TXDT.txdt.iter().enumerate(){
+            log::info!("TXDT[{idx}] -- addr: {:#08x}, flags: {:#04x}", el.buffer as u32, el.flags);
+        }
+        delay.block_ms(100); // we were flooding the serial too fast?
+        for(idx,el) in RXDT.rxdt.iter().enumerate(){
+            log::info!("RXDT[{idx}] -- addr: {:#08x}, flags: {:#04x}", el.buffer as u32, el.flags);
+        }
+    }
+
+    
+
+
+    loop {
+        delay.block_ms(1000); 
+        log::info!("test");
     }
 
 }

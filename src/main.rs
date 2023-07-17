@@ -282,7 +282,7 @@ fn main() -> ! {
     }
 
     ral::write_reg!(enet, enet1, EIMR, 0x0); //interupt mask: all off
-    ral::modify_reg!(enet,enet1,RCR,RMII_MODE:1,MII_MODE:1,LOOP:0,PROM:1); //rmii, no loopback, no MAC filter
+    ral::modify_reg!(enet,enet1,RCR,RMII_MODE:1,MII_MODE:1,LOOP:0,PROM:1,CRCFWD:1,DRT:0); //rmii, no loopback, no MAC filter
     ral::modify_reg!(enet,enet1,ECR,ETHEREN:1, DBSWP:1); //enable, swap bits
     ral::modify_reg!(enet,enet1,TCR,FDEN:1); //enable full-duplex
     ral::modify_reg!(enet,enet1,TFWR,STRFWD:1); // store and fwd
@@ -291,26 +291,25 @@ fn main() -> ! {
 
     loop {
         delay.block_ms(1000);
-        log::info!("testA");
         unsafe {
-            log::info!("testB");
             let desc: &mut TxDescriptor = &mut TXDT.txdt[tx_pos];
             if (desc.flags & 0x8000) == 0x0 {
-                log::info!("testC");
                 log::info!("tx, num= {tx_pos}");
-                let str = "thisatest";
-                BUFS.tx[tx_pos][0..9].copy_from_slice(str.as_bytes());
-                log::info!("testD");
-                desc.len = 44;
+                let str = "this-is-a-test-of-ethernet";
+
+                BUFS.tx[tx_pos][0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
+                BUFS.tx[tx_pos][6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
+                BUFS.tx[tx_pos][12..14].copy_from_slice(&[0x00,0x00]); //EtherType
+                BUFS.tx[tx_pos][14..40].copy_from_slice(str.as_bytes()); //Payload
+                
+                desc.len = 40; //min is 60 (64 with FCS), so this gets padded out.
                 desc.flags |= 0x8C00;
-                log::info!("testE");
                 ral::write_reg!(enet,enet1,TDAR,TDAR:1);
                 if tx_pos < 9 {
                     tx_pos += 1;
                 } else {
                     tx_pos = 0;
                 }
-                log::info!("testF");
             }
         }
     }

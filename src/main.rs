@@ -74,6 +74,9 @@ static mut BUFS: Bufs = Bufs {
     rx: [[0x0; 512]; 12],
 };
 
+static mut TX_POS: usize = 0;
+static mut RX_POS: usize = 0;
+
 fn mdio_write(enet1: &ral::Instance<enet::RegisterBlock, 1>, phyaddr: u8, regaddr: u8, data: u16) {
     ral::write_reg!(enet,enet1,MMFR,ST:1,OP:1,TA:0, PA:phyaddr as u32, RA:regaddr as u32, DATA:data as u32);
     while ral::read_reg!(enet, enet1, EIR, MII) == 0 {}
@@ -112,6 +115,30 @@ fn print_dt(delay: &mut Blocking<bsp::hal::gpt::Gpt<1>, 1000>) {
         }
     }
     log::info!("=================");
+}
+
+fn send_frame(enet1: &ral::Instance<enet::RegisterBlock, 1>) {
+    unsafe {
+        let desc: &mut TxDescriptor = &mut TXDT.txdt[TX_POS];
+        if (desc.flags & 0x8000) == 0x0 {
+            log::info!("tx, num= {TX_POS}");
+            let str = "this-is-a-test-of-ethernet";
+
+            BUFS.tx[TX_POS][0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
+            BUFS.tx[TX_POS][6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
+            BUFS.tx[TX_POS][12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
+            BUFS.tx[TX_POS][14..40].copy_from_slice(str.as_bytes()); //Payload
+
+            desc.len = 40; //min is 60 (64 with FCS), so this gets padded out.
+            desc.flags |= 0x8C00;
+            ral::write_reg!(enet,enet1,TDAR,TDAR:1);
+            if TX_POS < (TXDT.txdt.len() - 1) {
+                TX_POS += 1;
+            } else {
+                TX_POS = 0;
+            }
+        }
+    }
 }
 
 #[bsp::rt::entry]
@@ -238,11 +265,6 @@ fn main() -> ! {
     //     // delay.block_ms(500);
     // }
 
-    unsafe {
-        TXDT.txdt[1].len = 0;
-        RXDT.rxdt[1].len = 0;
-    }
-
     let rx_desc_size: usize = size_of::<RxDescriptor>();
     log::info!("rx_desc_size = {rx_desc_size}");
 
@@ -264,13 +286,13 @@ fn main() -> ! {
             element.buffer = addr_of!(BUFS.tx[idx][0]);
         }
 
-        TXDT.txdt.last_mut().unwrap().flags = 0xA000;
+        TXDT.txdt.last_mut().unwrap().flags = 0x2000;
 
         for (idx, element) in RXDT.rxdt.iter_mut().enumerate() {
             element.buffer = addr_of!(BUFS.rx[idx][0]);
         }
 
-        RXDT.rxdt.last_mut().unwrap().flags = 0x2000;
+        RXDT.rxdt.last_mut().unwrap().flags = 0xA000;
     }
 
     print_dt(&mut delay);
@@ -282,34 +304,68 @@ fn main() -> ! {
     }
 
     ral::write_reg!(enet, enet1, EIMR, 0x0); //interupt mask: all off
-    ral::modify_reg!(enet,enet1,RCR,RMII_MODE:1,MII_MODE:1,LOOP:0,PROM:1,CRCFWD:1,DRT:0); //rmii, no loopback, no MAC filter
+    ral::modify_reg!(enet,enet1,RCR,RMII_MODE:1,MII_MODE:1,LOOP:0,PROM:1,CRCFWD:1,DRT:0,MAX_FL:1522,NLC:1,PADEN:1); //rmii, no loopback, no MAC filter
     ral::modify_reg!(enet,enet1,ECR,ETHEREN:1, DBSWP:1); //enable, swap bits
     ral::modify_reg!(enet,enet1,TCR,FDEN:1); //enable full-duplex
     ral::modify_reg!(enet,enet1,TFWR,STRFWD:1); // store and fwd
+    ral::write_reg!(enet,enet1,RDAR,RDAR:1);
 
-    let mut tx_pos: usize = 0;
-
+    let mut i = 0;
+    let mut tx_counter = 0;
+    let mut rx_counter = 0;
     loop {
-        delay.block_ms(1000);
-        unsafe {
-            let desc: &mut TxDescriptor = &mut TXDT.txdt[tx_pos];
-            if (desc.flags & 0x8000) == 0x0 {
-                log::info!("tx, num= {tx_pos}");
-                let str = "this-is-a-test-of-ethernet";
+        i += 1;
+        delay.block_ms(10);
 
-                BUFS.tx[tx_pos][0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
-                BUFS.tx[tx_pos][6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
-                BUFS.tx[tx_pos][12..14].copy_from_slice(&[0x00,0x00]); //EtherType
-                BUFS.tx[tx_pos][14..40].copy_from_slice(str.as_bytes()); //Payload
-                
-                desc.len = 40; //min is 60 (64 with FCS), so this gets padded out.
-                desc.flags |= 0x8C00;
-                ral::write_reg!(enet,enet1,TDAR,TDAR:1);
-                if tx_pos < 9 {
-                    tx_pos += 1;
+        if i % 100 == 0 { //send once per second
+            send_frame(&enet1);
+            tx_counter += 1;
+        }
+
+        if i % 1000 == 0 { //send once per second
+            log::info!("rx: {rx_counter}, tx: {tx_counter}");
+        }
+
+        unsafe {
+            let rxd = &mut RXDT.rxdt[RX_POS];
+            if (rxd.flags & 0x8000) == 0 {
+                rx_counter += 1;
+
+                let buf = &BUFS.rx[RX_POS];
+                log::info!("=== Got a frame on RXD={RX_POS}, length={} ===", rxd.len);
+                log::info!(
+                    "DEST: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                    buf[0],
+                    buf[1],
+                    buf[2],
+                    buf[3],
+                    buf[4],
+                    buf[5]
+                );
+                log::info!(
+                    " SRC: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                    buf[6],
+                    buf[7],
+                    buf[8],
+                    buf[9],
+                    buf[10],
+                    buf[11]
+                );
+
+                log::info!("TYPE: {:#06x}", ((buf[12] as u16) << 8) | buf[13] as u16);
+
+                rxd.flags |= 0x8000;
+
+                if RX_POS < (RXDT.rxdt.len() - 1) {
+                    RX_POS += 1;
                 } else {
-                    tx_pos = 0;
+                    RX_POS = 0;
                 }
+            }
+
+            let rdar = ral::read_reg!(enet, enet1, RDAR, RDAR);
+            if rdar == 0 {
+                log::info!("RDAR={:#06x}", rdar);
             }
         }
     }

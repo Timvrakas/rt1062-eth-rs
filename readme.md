@@ -21,3 +21,18 @@ Caveats:
 - No PTP (for now)
 - Basic Descriptor (for now)
 - No VLANs
+
+
+Open questions
+- How do I deal with unused or out-of-order descriptor table usage?
+    - Does the TX/RX engine scan in order? does it cycle through the whole table?
+        - it looks like it cycles the whole ring before giving up.
+        - presumably it fills up the RXDT sequentially
+            - but we could search exahasutively??
+        - One solution here is to build a proper allocator that keeps track of table entries and clears them when they go out of scope
+        - Other solution is to not gaurentee a table entry until the token is consumed
+            - This feels wrong, but easy...
+    - So for reference, the [stm32 implementation](https://github.com/stm32-rs/stm32-eth/blob/master/src/dma/smoltcp_phy.rs) does not actually allocate a descriptor, and is vulnerable to the caller requesting many tokens, and then being unable to redeem them all in a short time.
+        - I suspect the smoltcp makes the implicit promise that it won't do this. But that's a bit weaksauce.
+
+I think what I'll do here is implement similar to STM32, and then go ask how it's supposed to be done, and decide if I want to actually track allocation.

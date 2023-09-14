@@ -4,6 +4,7 @@
 use bsp::board;
 use smoltcp::phy::Device;
 use smoltcp::phy::RxToken;
+use smoltcp::phy::TxToken;
 use smoltcp::time::Instant;
 // use bsp::ral::usbphy::RX;
 use teensy4_bsp as bsp;
@@ -150,33 +151,97 @@ fn main() -> ! {
     let mut time: i64 = 0;
     loop {
         time += 10;
-        match phy.receive(Instant::from_millis(time)){
+        delay.block_ms(100);
+        // match phy.receive(Instant::from_millis(time)){
+        //     None => (),
+        //     Some((rx, _tx)) => {
+        //         rx.consume(|buf: &mut [u8]| {
+        //             log::info!("=== Got a frame, length={} ===", buf.len());
+        //             log::info!(
+        //                 "DEST: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        //                 buf[0],
+        //                 buf[1],
+        //                 buf[2],
+        //                 buf[3],
+        //                 buf[4],
+        //                 buf[5]
+        //             );
+        //             log::info!(
+        //                 " SRC: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        //                 buf[6],
+        //                 buf[7],
+        //                 buf[8],
+        //                 buf[9],
+        //                 buf[10],
+        //                 buf[11]
+        //             );
+        //             log::info!("TYPE: {:#06x}", ((buf[12] as u16) << 8) | buf[13] as u16);
+        //         });
+        //     },
+        // }
+        log::info!("=== A ===");
+
+        // let x = phy.receive(Instant::from_millis(time));
+        // match x {
+        //     None => {
+        //         // log::info!("=== None X ===");
+        //     },
+        //     Some(..) => {
+        //         log::info!("=== Some X ===");
+        //     },
+        // }
+
+        log::info!("=== T1 ===");
+        let t1 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T2 ===");
+        let _t2 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T3 ===");
+        let _t3 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T4 ===");
+        let _t4 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T5 ===");
+        let _t5 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T6 ===");
+        let _t6 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T7 ===");
+        let _t7 = phy.transmit(Instant::from_millis(time));
+        delay.block_ms(10);
+        log::info!("=== T8 ===");
+        let _t8 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T9 ===");
+        let _t9 = phy.transmit(Instant::from_millis(time));
+        log::info!("=== T10 ===");
+        let _t0 = phy.transmit(Instant::from_millis(time));
+        // match y {
+        //     None => (),
+        //     Some(_tx) => {
+        //         // tx.consume(40, |buf: &mut [u8]| {
+        //         //     let str = "this-is-a-test-of-ethernet";
+        //         //     buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
+        //         //     buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
+        //         //     buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
+        //         //     buf[14..40].copy_from_slice(str.as_bytes()); //Payload
+        //         // });
+        //     }
+        // }
+
+        log::info!("=== D ===");
+        match t1 {
             None => (),
-            Some((rx, _tx)) => {
-                rx.consume(|buf: &mut [u8]| {
-                    log::info!("=== Got a frame, length={} ===", buf.len());
-                    log::info!(
-                        "DEST: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                        buf[0],
-                        buf[1],
-                        buf[2],
-                        buf[3],
-                        buf[4],
-                        buf[5]
-                    );
-                    log::info!(
-                        " SRC: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                        buf[6],
-                        buf[7],
-                        buf[8],
-                        buf[9],
-                        buf[10],
-                        buf[11]
-                    );
-                    log::info!("TYPE: {:#06x}", ((buf[12] as u16) << 8) | buf[13] as u16);
+            Some(tx) => {
+                tx.consume(40, |buf: &mut [u8]| {
+                    let str = "this-is-a-test-of-ethernet";
+                    buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
+                    buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
+                    buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
+                    buf[14..40].copy_from_slice(str.as_bytes()); //Payload
                 });
-            },
+            }
         }
+
+        log::info!("=== E ===");
+        ral::write_reg!(enet,enet1,TDAR,TDAR:1);
+        
     }
 
 }

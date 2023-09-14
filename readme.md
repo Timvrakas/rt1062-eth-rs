@@ -36,3 +36,10 @@ Open questions
         - I suspect the smoltcp makes the implicit promise that it won't do this. But that's a bit weaksauce.
 
 I think what I'll do here is implement similar to STM32, and then go ask how it's supposed to be done, and decide if I want to actually track allocation.
+
+
+Note: The TX hardware does not search the TxDT exaustively when TDAR is asserted. If you write a packet into descriptor zero, and assert TDAR, it will send. If you write annother packet into descriptor 0, and assert TDAR again, it will not send, and descriptor zero will never be ready. It appears the TX hardware maintains a buffer that is only incremented after success.
+
+
+New strategy:
+Tokens do not reserve _specific_ buffer descriptors, we just increment a counter of tokens that are outstanding. Need a way to deal with unused descriptors.

@@ -103,28 +103,28 @@ impl<'a> RT1062Phy {
 }
 
 impl phy::Device for RT1062Phy {
-    type RxToken<'a> = RT1062PhyRxToken<> where Self: 'a;
-    type TxToken<'a> = RT1062PhyTxToken<> where Self: 'a;
+    type RxToken<'a> = RT1062PhyRxToken<'a> where Self: 'a;
+    type TxToken<'a> = RT1062PhyTxToken<'a> where Self: 'a;
 
     fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         unsafe {
             let rxd = &mut RXDT.rxdt[self.rx_pos];
             if (rxd.flags & 0x8000) == 0 {
 
-                let ret = Some((RT1062PhyRxToken(self.rx_pos), RT1062PhyTxToken(self.tx_pos)));
+                let ret = Some((RT1062PhyRxToken{rx_pos: self.rx_pos, phy: self}, RT1062PhyTxToken{tx_pos: self.tx_pos, phy: self}));
                 log::info!("minted RX token {} with echo TX token {}",self.rx_pos,self.tx_pos);
 
-                if self.rx_pos < (RXDT.rxdt.len() - 1) {
-                    self.rx_pos += 1;
-                } else {
-                    self.rx_pos = 0;
-                }
+                // if self.rx_pos < (RXDT.rxdt.len() - 1) {
+                //     self.rx_pos += 1;
+                // } else {
+                //     self.rx_pos = 0;
+                // }
 
-                if self.tx_pos < (TXDT.txdt.len() - 1) {
-                    self.tx_pos += 1;
-                } else {
-                    self.tx_pos = 0;
-                }
+                // if self.tx_pos < (TXDT.txdt.len() - 1) {
+                //     self.tx_pos += 1;
+                // } else {
+                //     self.tx_pos = 0;
+                // }
 
                 return ret;
             }else{
@@ -138,13 +138,13 @@ impl phy::Device for RT1062Phy {
         unsafe {
             let desc: &mut TxDescriptor = &mut TXDT.txdt[self.tx_pos];
             if (desc.flags & 0x8000) == 0x0 {
-                let tok = RT1062PhyTxToken(self.tx_pos);
+                let tok = RT1062PhyTxToken{tx_pos: self.tx_pos, phy: self};
                 log::info!("minted TX token {}",self.tx_pos);
-                if self.tx_pos < (TXDT.txdt.len() - 1) {
-                    self.tx_pos += 1;
-                } else {
-                    self.tx_pos = 0;
-                }
+                // if self.tx_pos < (TXDT.txdt.len() - 1) {
+                //     self.tx_pos += 1;
+                // } else {
+                //     self.tx_pos = 0;
+                // }
                 return Some(tok);
             }else{
                 return None;
@@ -161,36 +161,42 @@ impl phy::Device for RT1062Phy {
     }
 }
 
-pub struct RT1062PhyRxToken<>(usize);
+pub struct RT1062PhyRxToken<'a>{
+    rx_pos: usize,
+    phy: &'a RT1062Phy
+}
 
-impl<'a> phy::RxToken for RT1062PhyRxToken<> {
+impl<'a> phy::RxToken for RT1062PhyRxToken<'a> {
     fn consume<R, F>(self, f: F) -> R
         where F: FnOnce(&mut [u8]) -> R
     {
         unsafe{
-            let rxd = &mut RXDT.rxdt[self.0];
-            let result = f(&mut BUFS.rx[self.0]);
-            log::info!("consumed RX token {}",self.0);
+            let rxd = &mut RXDT.rxdt[self.rx_pos];
+            let result = f(&mut BUFS.rx[self.rx_pos]);
+            log::info!("consumed RX token {}",self.rx_pos);
             rxd.flags |= 0x8000;
             result
         }
     }
 }
 
-pub struct RT1062PhyTxToken<>(usize);
+pub struct RT1062PhyTxToken<'a>{
+    tx_pos: usize,
+    phy: &'a RT1062Phy
+}
 
-impl<'a> phy::TxToken for RT1062PhyTxToken<> {
+impl<'a> phy::TxToken for RT1062PhyTxToken<'a> {
     fn consume<R, F>(self, len: usize, f: F) -> R
         where F: FnOnce(&mut [u8]) -> R
     {
         unsafe{
             let enet1 = enet::ENET1::instance();
-            let result = f(&mut BUFS.tx[self.0]);
-            let desc: &mut TxDescriptor = &mut TXDT.txdt[self.0];
+            let result = f(&mut BUFS.tx[self.tx_pos]);
+            let desc: &mut TxDescriptor = &mut TXDT.txdt[self.tx_pos];
             desc.len = len as u16;
             desc.flags |= 0x8C00;
             ral::write_reg!(enet,enet1,TDAR,TDAR:1);
-            log::info!("consumed TX token {}",self.0);
+            log::info!("consumed TX token {}",self.tx_pos);
             result
         }
     }

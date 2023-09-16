@@ -2,6 +2,7 @@
 #![no_main]
 
 use bsp::board;
+use iface::RT1062Phy;
 use smoltcp::phy::Device;
 // use smoltcp::phy::RxToken;
 use smoltcp::phy::TxToken;
@@ -151,40 +152,45 @@ fn main() -> ! {
     loop {
         time += 10;
         delay.block_ms(100);
+        test(&mut phy,time);
+        
+    }
+}
 
-        log::info!("=== create first token ===");
-        let token_1 = phy.transmit(Instant::from_millis(time));
-        log::info!("=== create second token ===");
-        let token_2 = phy.transmit(Instant::from_millis(time));
 
-        log::info!("=== consume first token ===");
-        match token_1 {
-            None => (),
-            Some(tx) => {
-                tx.consume(40, |buf: &mut [u8]| {
-                    let str = "this-is-a-test-of-ethernet";
-                    buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
-                    buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
-                    buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
-                    buf[14..40].copy_from_slice(str.as_bytes()); //Payload
-                });
-            }
-        }
+fn test(phy: &mut RT1062Phy, time: i64) {
+    log::info!("=== create first token ===");
+    let token_1 = phy.transmit(Instant::from_millis(time));
+    log::info!("=== create second token ===");
+    //let token_2 = phy.transmit(Instant::from_millis(time));
 
-        log::info!("=== consume second token ===");
-        match token_2 {
-            None => (),
-            Some(tx) => {
-                tx.consume(40, |buf: &mut [u8]| {
-                    let str = "this-is-a-test-of-ethernet";
-                    buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
-                    buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
-                    buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
-                    buf[14..40].copy_from_slice(str.as_bytes()); //Payload
-                });
-            }
+    log::info!("=== consume first token ===");
+    match token_1 {
+        None => (),
+        Some(tx) => {
+            tx.consume(40, |buf: &mut [u8]| {
+                let str = "this-is-a-test-of-ethernet";
+                buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
+                buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
+                buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
+                buf[14..40].copy_from_slice(str.as_bytes()); //Payload
+            });
         }
     }
+
+    // log::info!("=== consume second token ===");
+    // match token_2 {
+    //     None => (),
+    //     Some(tx) => {
+    //         tx.consume(40, |buf: &mut [u8]| {
+    //             let str = "this-is-a-test-of-ethernet";
+    //             buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
+    //             buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
+    //             buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
+    //             buf[14..40].copy_from_slice(str.as_bytes()); //Payload
+    //         });
+    //     }
+    // }
 }
 
 // We're responsible for configuring our timers.

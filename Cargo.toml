@@ -10,7 +10,7 @@ embedded-hal = "0.2"
 # Remove me if you don't want logging.
 log = "0.4"
 teensy4-panic = "0.2"
-smoltcp = { version = "0.10.0", default-features = false, features = ["log","proto-ipv4","medium-ethernet","medium-ip","socket-udp"] }
+smoltcp = { version = "0.10.0", default-features = false, features = ["log","proto-ipv4","medium-ethernet","medium-ip","socket-udp","proto-igmp","socket-icmp","socket-raw"] }
 
 [dependencies.teensy4-bsp]
 version = "0.4"

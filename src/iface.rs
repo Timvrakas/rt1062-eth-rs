@@ -7,6 +7,7 @@ use core::ptr::null;
 use bsp::ral;
 use ral::enet;
 use teensy4_bsp as bsp;
+use core::sync::atomic;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -163,7 +164,6 @@ impl phy::Device for RT1062Phy {
     }
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
-        // this is wrong, because the TxToken might not be used, so we could run out of descriptors :P
         unsafe {
             let desc: &mut TxDescriptor = &mut TXDT.txdt[self.tx_pos];
             if (desc.flags & 0x8000) == 0x0 {
@@ -173,6 +173,7 @@ impl phy::Device for RT1062Phy {
                 };
                 return Some(tok);
             } else {
+                log::info!("descriptor {} not free: {:04x}", self.tx_pos, desc.flags);
                 return None;
             }
         }
@@ -226,8 +227,50 @@ impl<'a> phy::TxToken for RT1062PhyTxToken<'a> {
             let desc: &mut TxDescriptor = &mut TXDT.txdt[*self.tx_pos];
             desc.len = len as u16;
             desc.flags |= 0x8C00;
+            atomic::fence(atomic::Ordering::SeqCst);
             ral::write_reg!(enet,enet1,TDAR,TDAR:1);
-            log::info!("consumed TX token {}", self.tx_pos);
+            log::info!("consumed TX token {}. len={} ", self.tx_pos, len);
+            // log::info!(
+            //     "DEST: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            //     buf[0],
+            //     buf[1],
+            //     buf[2],
+            //     buf[3],
+            //     buf[4],
+            //     buf[5]
+            // );
+            // log::info!(
+            //     "SRC: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            //     buf[6],
+            //     buf[7],
+            //     buf[8],
+            //     buf[9],
+            //     buf[10],
+            //     buf[11]
+            // );
+            // log::info!("ethtype: {:02x}{:02x}", buf[12], buf[13]);
+            // log::info!(
+            //     "Sender MAC: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            //     buf[22],
+            //     buf[23],
+            //     buf[24],
+            //     buf[25],
+            //     buf[26],
+            //     buf[27]
+            // );
+            // log::info!("Sender IP: {}.{}.{}.{}", buf[28], buf[29],buf[30],buf[31]);
+            // log::info!(
+            //     "Target MAC: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            //     buf[32],
+            //     buf[33],
+            //     buf[34],
+            //     buf[35],
+            //     buf[36],
+            //     buf[37]
+            // );
+            // log::info!("Target IP: {}.{}.{}.{}", buf[38], buf[39],buf[40],buf[41]);
+
+
             if *self.tx_pos < (TXDT.txdt.len() - 1) {
                 *self.tx_pos += 1;
             } else {

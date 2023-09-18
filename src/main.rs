@@ -3,17 +3,27 @@
 
 use bsp::board;
 use iface::RT1062Phy;
+use smoltcp::iface::Config;
+use smoltcp::iface::Interface;
+use smoltcp::iface::SocketSet;
 use smoltcp::phy::Device;
+use smoltcp::socket::udp::PacketMetadata;
+use smoltcp::wire::EthernetAddress;
+use smoltcp::socket::udp;
 // use smoltcp::phy::RxToken;
 use smoltcp::phy::TxToken;
 use smoltcp::time::Instant;
+use smoltcp::wire::IpAddress;
+use smoltcp::wire::IpCidr;
+use smoltcp::wire::IpEndpoint;
+use smoltcp::wire::IpListenEndpoint;
 use teensy4_bsp as bsp;
 use teensy4_panic as _;
 
 use bsp::hal::timer::Blocking;
 
-use bsp::ral;
 use bsp::hal;
+use bsp::ral;
 use ral::ccm;
 use ral::ccm_analog;
 use ral::iomuxc;
@@ -120,7 +130,7 @@ fn main() -> ! {
     phy_shdn.set();
     delay.block_ms(50);
     phy_rst.set();
-    
+
     bsp::LoggingFrontend::default_log().register_usb(usb);
 
     delay.block_ms(2000);
@@ -128,30 +138,96 @@ fn main() -> ! {
     let mut phy = iface::RT1062Phy::new();
 
     let mut time: i64 = 0;
-    let mut count: i32 = 0;
+
+    // loop {
+    //     _mac(&mut phy, &mut time, &mut delay);
+    // }
+
     loop {
-        //log::info!("start loop");
         time += 10;
-        log::info!("A");
-        for i in 1..10 {
-            log::info!("delay {}", i);
-            delay.block_ms(10);
+        delay.block_ms(100);
+        _test(&mut phy, time);
+        
+    }
+
+}
+
+fn _mac(phy: &mut RT1062Phy, time: &mut i64, delay: &mut Blocking<bsp::hal::gpt::Gpt<1>,1000>){
+    let config = Config::new(EthernetAddress([0x03, 0x48, 0x46, 0x03, 0x96, 0x21]).into());
+
+    let mut iface = Interface::new(config, phy, Instant::from_millis(*time));
+
+    iface.update_ip_addrs(|ip_addrs| {
+        ip_addrs
+            .push(IpCidr::new(IpAddress::v4(192, 168, 69, 1), 24))
+            .unwrap();
+    });
+
+    let mut client_socket = {
+        static mut RX_HEADER: [PacketMetadata;2] = [PacketMetadata::EMPTY,PacketMetadata::EMPTY];
+        static mut TX_HEADER: [PacketMetadata;2] = [PacketMetadata::EMPTY,PacketMetadata::EMPTY];
+        static mut TCP_CLIENT_RX_DATA: [u8; 1024] = [0; 1024];
+        static mut TCP_CLIENT_TX_DATA: [u8; 1024] = [0; 1024];
+        
+        let tcp_rx_buffer = udp::PacketBuffer::new(unsafe { &mut RX_HEADER[..] }, unsafe { &mut TCP_CLIENT_RX_DATA[..] });
+        let tcp_tx_buffer = udp::PacketBuffer::new(unsafe { &mut TX_HEADER[..] }, unsafe { &mut TCP_CLIENT_TX_DATA[..] });
+
+        udp::Socket::new( tcp_rx_buffer, tcp_tx_buffer)
+    };
+
+    let mut sockets: [_; 1] = Default::default();
+    let mut sockets = SocketSet::new(&mut sockets[..]);
+
+    let result = client_socket.bind(IpListenEndpoint{addr: None, port:80});
+    
+    match result{
+        Ok(_) => (),
+        Err(_x) => {
+            log::info!("Bind Error!");
         }
-        log::info!("B");
-        test(&mut phy, time);
-        log::info!("send count: {}", count);
-        count += 1;
+    }
+
+    let client_handle = sockets.add(client_socket);
+
+    let test: [u8; 3] = [0x69,0x69,0x69];
+
+
+    loop{
+        *time += 10;
+        delay.block_ms(10);
+        let x = iface.poll(Instant::from_millis(*time), phy, &mut sockets);
+        
+        let z: &mut udp::Socket = sockets.get_mut(client_handle);
+
+        if !z.can_send() {
+            log::info!("can't send!");
+        }
+        if !z.is_open() {
+            log::info!("closed");
+        }
+
+        let w = z.send_slice(&test, IpEndpoint{ addr: IpAddress::v4(192, 168, 69, 2), port:80} );
+
+        match w {
+            Ok(_) => (),
+            Err(_x) => {
+                log::info!("SendErr");
+            },
+        }
+        
+        log::info!("loop: {}, {}",time,x);
     }
 }
 
-
-fn test(phy: &mut RT1062Phy, time: i64) {
+fn _test(phy: &mut RT1062Phy, time: i64) {
     log::info!("=== create first token ===");
     let token_1 = phy.transmit(Instant::from_millis(time));
 
     log::info!("=== consume first token ===");
     match token_1 {
-        None => (),
+        None => {
+            log::info!("Didn't get a token!");
+        },
         Some(tx) => {
             tx.consume(40, |buf: &mut [u8]| {
                 let str = "this-is-a-test-of-ethernet";

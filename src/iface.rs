@@ -76,7 +76,7 @@ impl<'a> RT1062Phy {
         ral::write_reg!(enet,enet1,MSCR,MII_SPEED:9);
         ral::write_reg!(enet, enet1, EIMR, 0x0); //interupt mask: all off
         ral::modify_reg!(enet,enet1,RCR,RMII_MODE:1,MII_MODE:1,LOOP:0,PROM:1,CRCFWD:1,DRT:0,MAX_FL:1522,NLC:1,PADEN:1); //rmii, no loopback, no MAC filter
-        ral::modify_reg!(enet,enet1,ECR,ETHEREN:1, DBSWP:1); //enable, swap bits
+        ral::modify_reg!(enet,enet1,ECR, DBSWP:1); //swap endianess
         ral::modify_reg!(enet,enet1,TCR,FDEN:1); //enable full-duplex
         ral::modify_reg!(enet,enet1,TFWR,STRFWD:1); // store and fwd
         ral::write_reg!(enet,enet1,RDAR,RDAR:1);
@@ -111,6 +111,8 @@ impl<'a> RT1062Phy {
         }
 
         log::info!("Set Up Descriptor Tables!");
+
+        ral::modify_reg!(enet,enet1,ECR,ETHEREN:1); //enable ethernet
 
         RT1062Phy {
             tx_pos: 0,

@@ -139,16 +139,16 @@ fn main() -> ! {
 
     let mut time: i64 = 0;
 
-    // loop {
-    //     _mac(&mut phy, &mut time, &mut delay);
-    // }
-
     loop {
-        time += 10;
-        delay.block_ms(100);
-        _test(&mut phy, time);
-        
+        _mac(&mut phy, &mut time, &mut delay);
     }
+
+    // loop {
+    //     time += 10;
+    //     delay.block_ms(100);
+    //     _test(&mut phy, time);
+        
+    // }
 
 }
 

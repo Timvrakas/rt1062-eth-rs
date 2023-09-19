@@ -195,27 +195,29 @@ fn _mac(phy: &mut RT1062Phy, time: &mut i64, delay: &mut Blocking<bsp::hal::gpt:
     loop{
         *time += 10;
         delay.block_ms(10);
-        let x = iface.poll(Instant::from_millis(*time), phy, &mut sockets);
+        let _x = iface.poll(Instant::from_millis(*time), phy, &mut sockets);
         
-        let z: &mut udp::Socket = sockets.get_mut(client_handle);
 
-        if !z.can_send() {
-            log::info!("can't send!");
-        }
-        if !z.is_open() {
-            log::info!("closed");
-        }
+        if (*time % 100) < 10 {
+            let z: &mut udp::Socket = sockets.get_mut(client_handle);
 
-        let w = z.send_slice(&test, IpEndpoint{ addr: IpAddress::v4(192, 168, 69, 2), port:80} );
+            if !z.can_send() {
+                //log::info!("can't send!");
+            }
+            if !z.is_open() {
+                log::info!("closed");
+            }
 
-        match w {
-            Ok(_) => (),
-            Err(_x) => {
-                log::info!("SendErr");
-            },
-        }
+            let w = z.send_slice(&test, IpEndpoint{ addr: IpAddress::v4(192, 168, 69, 2), port:80} );
+
+            match w {
+                Ok(_) => (),
+                Err(_x) => {
+                    //log::info!("SendErr");
+                },
+            }
         
-        log::info!("loop: {}, {}",time,x);
+        }
     }
 }
 

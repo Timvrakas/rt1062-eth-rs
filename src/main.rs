@@ -2,16 +2,12 @@
 #![no_main]
 
 use bsp::board;
-use iface::RT1062Phy;
 use smoltcp::iface::Config;
 use smoltcp::iface::Interface;
 use smoltcp::iface::SocketSet;
-use smoltcp::phy::Device;
 use smoltcp::socket::udp::PacketMetadata;
 use smoltcp::wire::EthernetAddress;
 use smoltcp::socket::udp;
-// use smoltcp::phy::RxToken;
-use smoltcp::phy::TxToken;
 use smoltcp::time::Instant;
 use smoltcp::wire::IpAddress;
 use smoltcp::wire::IpCidr;
@@ -139,23 +135,8 @@ fn main() -> ! {
 
     let mut time: i64 = 0;
 
-    loop {
-        _mac(&mut phy, &mut time, &mut delay);
-    }
-
-    // loop {
-    //     time += 10;
-    //     delay.block_ms(100);
-    //     _test(&mut phy, time);
-        
-    // }
-
-}
-
-fn _mac(phy: &mut RT1062Phy, time: &mut i64, delay: &mut Blocking<bsp::hal::gpt::Gpt<1>,1000>){
     let config = Config::new(EthernetAddress([0x03, 0x48, 0x46, 0x03, 0x96, 0x21]).into());
-
-    let mut iface = Interface::new(config, phy, Instant::from_millis(*time));
+    let mut iface = Interface::new(config, &mut phy, Instant::from_millis(time));
 
     iface.update_ip_addrs(|ip_addrs| {
         ip_addrs
@@ -193,16 +174,16 @@ fn _mac(phy: &mut RT1062Phy, time: &mut i64, delay: &mut Blocking<bsp::hal::gpt:
 
 
     loop{
-        *time += 10;
+        time += 10;
         delay.block_ms(10);
-        let _x = iface.poll(Instant::from_millis(*time), phy, &mut sockets);
+        let _x = iface.poll(Instant::from_millis(time), &mut phy, &mut sockets);
         
 
-        if (*time % 100) < 10 {
+        if (time % 100) < 10 {
             let z: &mut udp::Socket = sockets.get_mut(client_handle);
 
             if !z.can_send() {
-                //log::info!("can't send!");
+                log::info!("can't send!");
             }
             if !z.is_open() {
                 log::info!("closed");
@@ -213,34 +194,12 @@ fn _mac(phy: &mut RT1062Phy, time: &mut i64, delay: &mut Blocking<bsp::hal::gpt:
             match w {
                 Ok(_) => (),
                 Err(_x) => {
-                    //log::info!("SendErr");
+                    log::info!("SendErr");
                 },
             }
         
         }
     }
-}
-
-fn _test(phy: &mut RT1062Phy, time: i64) {
-    log::info!("=== create first token ===");
-    let token_1 = phy.transmit(Instant::from_millis(time));
-
-    log::info!("=== consume first token ===");
-    match token_1 {
-        None => {
-            log::info!("Didn't get a token!");
-        },
-        Some(tx) => {
-            tx.consume(40, |buf: &mut [u8]| {
-                let str = "this-is-a-test-of-ethernet";
-                buf[0..6].copy_from_slice(&[0xd8, 0xec, 0x5e, 0x2b, 0x45, 0x07]); //dest mac
-                buf[6..12].copy_from_slice(&[0x03, 0x48, 0x46, 0x03, 0x96, 0x21]); //dest mac
-                buf[12..14].copy_from_slice(&[0x00, 0x00]); //EtherType
-                buf[14..40].copy_from_slice(str.as_bytes()); //Payload
-            });
-        }
-    }
-
 }
 
 // We're responsible for configuring our timers.

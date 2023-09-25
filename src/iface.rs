@@ -139,7 +139,7 @@ impl<'a> RT1062Phy {
 }
 
 impl phy::Device for RT1062Phy {
-    //these statements, and the associated borrow logic, specifies that
+    //these statements, and the associated borrow logic, specifies that the token has the lifetime of the RT1062Phy object. This means there can only ever be each of the TX and RX Tokens.
     type RxToken<'a> = RT1062PhyRxToken<'a> where Self: 'a;
     type TxToken<'a> = RT1062PhyTxToken<'a> where Self: 'a;
 
@@ -147,11 +147,6 @@ impl phy::Device for RT1062Phy {
         unsafe {
             let rxd = &mut RXDT.rxdt[self.rx_pos];
             if (rxd.flags & 0x8000) == 0 {
-                // log::info!(
-                //     "minted RX token {} with echo TX token {}",
-                //     self.rx_pos,
-                //     self.tx_pos
-                // );
                 let ret = Some((
                     RT1062PhyRxToken {
                         rx_pos: &mut self.rx_pos,
@@ -162,7 +157,6 @@ impl phy::Device for RT1062Phy {
                 ));
                 return ret;
             } else {
-                //log::info!("RX desc {} is not filled {:04x}", self.rx_pos, rxd.flags);
                 return None;
             }
         }
@@ -172,13 +166,11 @@ impl phy::Device for RT1062Phy {
         unsafe {
             let desc: &mut TxDescriptor = &mut TXDT.txdt[self.tx_pos];
             if (desc.flags & 0x8000) == 0x0 {
-                //log::info!("minted TX token {}", self.tx_pos);
                 let tok = RT1062PhyTxToken {
                     tx_pos: &mut self.tx_pos,
                 };
                 return Some(tok);
             } else {
-                //log::info!("descriptor {} not free: {:04x}", self.tx_pos, desc.flags);
                 return None;
             }
         }
@@ -205,7 +197,6 @@ impl<'a> phy::RxToken for RT1062PhyRxToken<'a> {
         unsafe {
             let rxd = &mut RXDT.rxdt[*self.rx_pos];
             let result = f(&mut BUFS.rx[*self.rx_pos]);
-            //log::info!("consumed RX token {}", self.rx_pos);
             atomic::fence(atomic::Ordering::SeqCst);
             rxd.flags |= 0x8000;
             if *self.rx_pos < (RXDT.rxdt.len() - 1) {
@@ -235,7 +226,6 @@ impl<'a> phy::TxToken for RT1062PhyTxToken<'a> {
             desc.flags |= 0x8C00;
             atomic::fence(atomic::Ordering::SeqCst);
             ral::write_reg!(enet,enet1,TDAR,TDAR:1);
-            //log::info!("consumed TX token {}. len={} ", self.tx_pos, len);
 
             if *self.tx_pos < (TXDT.txdt.len() - 1) {
                 *self.tx_pos += 1;

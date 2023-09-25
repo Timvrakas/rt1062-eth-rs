@@ -25,23 +25,9 @@ Caveats:
 - No VLANs
 
 
-Open questions
-- How do I deal with unused or out-of-order descriptor table usage?
-    - Does the TX/RX engine scan in order? does it cycle through the whole table?
-        - it looks like it cycles the whole ring before giving up.
-        - presumably it fills up the RXDT sequentially
-            - but we could search exahasutively??
-        - One solution here is to build a proper allocator that keeps track of table entries and clears them when they go out of scope
-        - Other solution is to not gaurentee a table entry until the token is consumed
-            - This feels wrong, but easy...
-    - So for reference, the [stm32 implementation](https://github.com/stm32-rs/stm32-eth/blob/master/src/dma/smoltcp_phy.rs) does not actually allocate a descriptor, and is vulnerable to the caller requesting many tokens, and then being unable to redeem them all in a short time.
-        - I suspect the smoltcp makes the implicit promise that it won't do this. But that's a bit weaksauce.
-
-I think what I'll do here is implement similar to STM32, and then go ask how it's supposed to be done, and decide if I want to actually track allocation.
 
 
-Note: The TX hardware does not search the TxDT exaustively when TDAR is asserted. If you write a packet into descriptor zero, and assert TDAR, it will send. If you write annother packet into descriptor 0, and assert TDAR again, it will not send, and descriptor zero will never be ready. It appears the TX hardware maintains a buffer that is only incremented after success.
-
-
-New strategy:
-Tokens do not reserve _specific_ buffer descriptors, we just increment a counter of tokens that are outstanding. Need a way to deal with unused descriptors.
+## Lessons Learned
+- smoltcp will only ever create one each TXToken and RXToken. Device implementations are meant to enforce this by having the token borrow something from the Device, so that multiple calls to transmit() or receive() will be prevented by the borrow checker.
+- The ENET uDMA engine maintains pointers/counters to the last/next used TX and RX descriptor table entries. When TDAR is asserted, only the "next" descriptor is checked for readiness (and any subsequent until exahusted). Thus, you can't populate any free descriptor, you need to maintain your own pointer so that you populate the next entry. For RX, you don't need to scan the entire descriptor table for non-empty entries, just the "next" one.
+- There may be data caching going on. I don't have a complete understanding, but out of an abundance of caution, I added atomic fences. More work needed.

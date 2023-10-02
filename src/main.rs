@@ -5,10 +5,10 @@ use bsp::board;
 use smoltcp::iface::Config;
 use smoltcp::iface::Interface;
 use smoltcp::iface::SocketSet;
-use smoltcp::socket::udp::PacketMetadata;
-use smoltcp::wire::EthernetAddress;
 use smoltcp::socket::udp;
+use smoltcp::socket::udp::PacketMetadata;
 use smoltcp::time::Instant;
+use smoltcp::wire::EthernetAddress;
 use smoltcp::wire::IpAddress;
 use smoltcp::wire::IpCidr;
 use smoltcp::wire::IpEndpoint;
@@ -22,10 +22,12 @@ use bsp::hal;
 use bsp::ral;
 use ral::ccm;
 use ral::ccm_analog;
+use ral::enet;
 use ral::iomuxc;
 use ral::iomuxc_gpr;
 
-mod iface;
+mod rt1062_eth;
+use rt1062_eth::RT1062Phy;
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -113,9 +115,8 @@ fn main() -> ! {
     ral::write_reg!(iomuxc, mux1, ENET_RXERR_SELECT_INPUT,DAISY:1);
     ral::write_reg!(iomuxc, mux1, ENET_IPG_CLK_RMII_SELECT_INPUT, DAISY:1);
 
-
-    let mut gpio2 = hal::gpio::Port::new(unsafe{ral::gpio::GPIO2::instance()});
-    let pads = hal::iomuxc::into_pads(unsafe {ral::iomuxc::Instance::instance()});
+    let mut gpio2 = hal::gpio::Port::new(unsafe { ral::gpio::GPIO2::instance() });
+    let pads = hal::iomuxc::into_pads(unsafe { ral::iomuxc::Instance::instance() });
 
     let phy_shdn = gpio2.output(pads.gpio_b0.p15);
     let phy_rst = gpio2.output(pads.gpio_b0.p14);
@@ -131,7 +132,30 @@ fn main() -> ! {
 
     delay.block_ms(2000);
 
-    let mut phy = iface::RT1062Phy::new();
+    let mut txdt: rt1062_eth::ring::TxDT<512, 12> = Default::default();
+    let mut rxdt: rt1062_eth::ring::RxDT<512, 12> = Default::default();
+
+    rt1062_eth::ring::print_dt(&mut delay, &txdt, &rxdt);
+
+    delay.block_ms(10);
+
+    let mut phy: RT1062Phy<1, 512, 12, 12> =
+        RT1062Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
+        delay.block_ms(10);
+
+    rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+
+    delay.block_ms(10);
+
+    {
+        phy.mdio_write(0, 0x18, 0x0280); // LED shows link status, active high
+        phy.mdio_write(0, 0x17, 0x0081); // config for 50 MHz clock input
+
+        let rcsr = phy.mdio_read(0, 0x17);
+        let ledcr = phy.mdio_read(0, 0x18);
+        let phycr = phy.mdio_read(0, 0x19);
+        log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
+    }
 
     let mut time: i64 = 0;
 
@@ -145,23 +169,30 @@ fn main() -> ! {
     });
 
     let mut client_socket = {
-        static mut RX_HEADER: [PacketMetadata;2] = [PacketMetadata::EMPTY,PacketMetadata::EMPTY];
-        static mut TX_HEADER: [PacketMetadata;2] = [PacketMetadata::EMPTY,PacketMetadata::EMPTY];
+        static mut RX_HEADER: [PacketMetadata; 2] = [PacketMetadata::EMPTY, PacketMetadata::EMPTY];
+        static mut TX_HEADER: [PacketMetadata; 2] = [PacketMetadata::EMPTY, PacketMetadata::EMPTY];
         static mut TCP_CLIENT_RX_DATA: [u8; 1024] = [0; 1024];
         static mut TCP_CLIENT_TX_DATA: [u8; 1024] = [0; 1024];
-        
-        let tcp_rx_buffer = udp::PacketBuffer::new(unsafe { &mut RX_HEADER[..] }, unsafe { &mut TCP_CLIENT_RX_DATA[..] });
-        let tcp_tx_buffer = udp::PacketBuffer::new(unsafe { &mut TX_HEADER[..] }, unsafe { &mut TCP_CLIENT_TX_DATA[..] });
 
-        udp::Socket::new( tcp_rx_buffer, tcp_tx_buffer)
+        let tcp_rx_buffer = udp::PacketBuffer::new(unsafe { &mut RX_HEADER[..] }, unsafe {
+            &mut TCP_CLIENT_RX_DATA[..]
+        });
+        let tcp_tx_buffer = udp::PacketBuffer::new(unsafe { &mut TX_HEADER[..] }, unsafe {
+            &mut TCP_CLIENT_TX_DATA[..]
+        });
+
+        udp::Socket::new(tcp_rx_buffer, tcp_tx_buffer)
     };
 
     let mut sockets: [_; 1] = Default::default();
     let mut sockets = SocketSet::new(&mut sockets[..]);
 
-    let result = client_socket.bind(IpListenEndpoint{addr: None, port:80});
-    
-    match result{
+    let result = client_socket.bind(IpListenEndpoint {
+        addr: None,
+        port: 80,
+    });
+
+    match result {
         Ok(_) => (),
         Err(_x) => {
             log::info!("Bind Error!");
@@ -170,34 +201,37 @@ fn main() -> ! {
 
     let client_handle = sockets.add(client_socket);
 
-    let test: [u8; 3] = [0x69,0x69,0x69];
+    let test: [u8; 3] = [0x69, 0x69, 0x69];
 
-
-    loop{
+    loop {
         time += 10;
         delay.block_ms(10);
         let _x = iface.poll(Instant::from_millis(time), &mut phy, &mut sockets);
-        
 
         if (time % 100) < 10 {
             let z: &mut udp::Socket = sockets.get_mut(client_handle);
 
             if !z.can_send() {
-                log::info!("can't send!");
+                //log::info!("can't send!");
             }
             if !z.is_open() {
                 log::info!("closed");
             }
 
-            let w = z.send_slice(&test, IpEndpoint{ addr: IpAddress::v4(192, 168, 69, 2), port:80} );
+            let w = z.send_slice(
+                &test,
+                IpEndpoint {
+                    addr: IpAddress::v4(192, 168, 69, 2),
+                    port: 80,
+                },
+            );
 
             match w {
                 Ok(_) => (),
                 Err(_x) => {
-                    log::info!("SendErr");
-                },
+                    //    log::info!("SendErr");
+                }
             }
-        
         }
     }
 }

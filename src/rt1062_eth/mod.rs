@@ -11,24 +11,24 @@ use teensy4_bsp as bsp;
 pub mod ring;
 use ring::*;
 
-pub struct RT1062Phy<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
+pub struct RT1062Phy<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
 {
     tx_pos: usize,
     rx_pos: usize,
     enet_inst: enet::Instance<INST>,
-    pub txdt: &'a mut TxDT<MTU, TX_LEN>,
-    pub rxdt: &'a mut RxDT<MTU, RX_LEN>,
+    pub txdt: TxDT<MTU, TX_LEN>,
+    pub rxdt: RxDT<MTU, RX_LEN>,
 }
 
-impl<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
-    RT1062Phy<'a, INST, MTU, RX_LEN, TX_LEN>
+impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
+    RT1062Phy<INST, MTU, RX_LEN, TX_LEN>
 {
     pub fn new(
         enet_inst: enet::Instance<INST>,
-        rxdt: &'a mut RxDT<MTU, RX_LEN>,
-        txdt: &'a mut TxDT<MTU, TX_LEN>,
-    ) -> RT1062Phy<'a, INST, MTU, RX_LEN, TX_LEN> {
-        let device = RT1062Phy {
+        rxdt: RxDT<MTU, RX_LEN>,
+        txdt: TxDT<MTU, TX_LEN>,
+    ) -> RT1062Phy<INST, MTU, RX_LEN, TX_LEN> {
+        let mut device = RT1062Phy {
             tx_pos: 0,
             rx_pos: 0,
             enet_inst: enet_inst,
@@ -99,7 +99,7 @@ impl<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: us
 }
 
 impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize> phy::Device
-    for RT1062Phy<'_, INST, MTU, RX_LEN, TX_LEN>
+    for RT1062Phy<INST, MTU, RX_LEN, TX_LEN>
 {
     //these statements, and the associated borrow logic, specifies that the token has the lifetime of the RT1062Phy object. This means there can only ever be each of the TX and RX Tokens.
     type RxToken<'a> = RT1062PhyRxToken<'a, MTU, RX_LEN> where Self: 'a;

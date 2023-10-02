@@ -130,20 +130,24 @@ fn main() -> ! {
 
     bsp::LoggingFrontend::default_log().register_usb(usb);
 
-    delay.block_ms(2000);
+    delay.block_ms(5000);
 
-    let mut txdt: rt1062_eth::ring::TxDT<512, 12> = Default::default();
-    let mut rxdt: rt1062_eth::ring::RxDT<512, 12> = Default::default();
+    log::info!("Never get here?");
+
+    delay.block_ms(5000);
+
+    let txdt: rt1062_eth::ring::TxDT<512, 12> = Default::default();
+    let rxdt: rt1062_eth::ring::RxDT<512, 12> = Default::default();
 
     rt1062_eth::ring::print_dt(&mut delay, &txdt, &rxdt);
 
     delay.block_ms(10);
 
     let mut phy: RT1062Phy<1, 512, 12, 12> =
-        RT1062Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
+        RT1062Phy::new(unsafe { enet::ENET1::instance() }, rxdt, txdt);
         delay.block_ms(10);
 
-    rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+    rt1062_eth::ring::print_dt(&mut delay, &phy.txdt, &phy.rxdt);
 
     delay.block_ms(10);
 

@@ -1,4 +1,13 @@
-cargo objcopy --release -- -O ihex out.hex
+To build as a library, enable an `imxrt-ral`` feature that matches
+your target MCU. Here's a few examples:
+
+```bash
+cargo build --features=imxrt-ral/imxrt1062
+cargo build --features=imxrt-ral/imxrt1176_cm7
+cargo build --features=imxrt-ral/imxrt1021
+```
+
+cargo objcopy --release --example=teensy41 -- -O ihex out.hex
 
 /home/timv/teensy_loader_cli/teensy_loader_cli --mcu TEENSY41 out.hex -w
 

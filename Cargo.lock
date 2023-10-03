@@ -353,8 +353,7 @@ checksum = "122003d369c71bcde02e16cd3e61b2e6da7320b54dc5943e7c1a3dc913008288"
 name = "rt1062-eth-rs"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
- "embedded-hal",
+ "imxrt-ral",
  "log",
  "smoltcp",
  "teensy4-bsp",

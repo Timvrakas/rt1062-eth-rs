@@ -134,17 +134,18 @@ fn main() -> ! {
     let mut txdt: rt1062_eth_rs::ring::TxDT<512, 12> = Default::default();
     let mut rxdt: rt1062_eth_rs::ring::RxDT<512, 12> = Default::default();
 
-    rt1062_eth_rs::ring::print_dt(&mut delay, &txdt, &rxdt);
+    let mut blocking = |ms| delay.block_ms(ms);
+    rt1062_eth_rs::ring::print_dt(&mut blocking, &txdt, &rxdt);
 
-    delay.block_ms(10);
+    blocking(10);
 
     let mut phy: RT1062Phy<1, 512, 12, 12> =
         RT1062Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
-        delay.block_ms(10);
+        blocking(10);
 
-    rt1062_eth_rs::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+    rt1062_eth_rs::ring::print_dt(&mut blocking, phy.txdt, phy.rxdt);
 
-    delay.block_ms(10);
+    blocking(10);
 
     {
         phy.mdio_write(0, 0x18, 0x0280); // LED shows link status, active high
@@ -204,7 +205,7 @@ fn main() -> ! {
 
     loop {
         time += 10;
-        delay.block_ms(10);
+        blocking(10);
         let _x = iface.poll(Instant::from_millis(time), &mut phy, &mut sockets);
 
         if (time % 100) < 10 {

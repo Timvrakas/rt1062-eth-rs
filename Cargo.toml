@@ -5,14 +5,14 @@ authors = ["Tim Vrakas <tim@vrakaslabs.net>"]
 edition = "2021"
 
 [dependencies]
-cortex-m = "0.7"
-embedded-hal = "0.2"
-# Remove me if you don't want logging.
-log = "0.4"
-teensy4-panic = "0.2"
+imxrt-ral = "0.5"
 smoltcp = { version = "0.10.0", default-features = false, features = ["log","proto-ipv4","medium-ethernet","medium-ip","socket-udp","proto-igmp","socket-icmp","socket-raw"] }
+log = "0.4"
 
-[dependencies.teensy4-bsp]
+[dev-dependencies]
+teensy4-panic = "0.2"
+
+[dev-dependencies.teensy4-bsp]
 version = "0.4"
 features = [
     # Use the BSP's runtime. This lets you write your

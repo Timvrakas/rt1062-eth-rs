@@ -191,6 +191,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "imxrt-enet"
+version = "0.1.0"
+dependencies = [
+ "imxrt-ral",
+ "log",
+ "smoltcp",
+ "teensy4-bsp",
+ "teensy4-panic",
+]
+
+[[package]]
 name = "imxrt-hal"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -348,17 +359,6 @@ name = "ral-registers"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "122003d369c71bcde02e16cd3e61b2e6da7320b54dc5943e7c1a3dc913008288"
-
-[[package]]
-name = "rt1062-eth-rs"
-version = "0.1.0"
-dependencies = [
- "imxrt-ral",
- "log",
- "smoltcp",
- "teensy4-bsp",
- "teensy4-panic",
-]
 
 [[package]]
 name = "rustc_version"

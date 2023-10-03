@@ -1,5 +1,5 @@
 [package]
-name = "rt1062-eth-rs"
+name = "imxrt-enet"
 version = "0.1.0"
 authors = ["Tim Vrakas <tim@vrakaslabs.net>"]
 edition = "2021"

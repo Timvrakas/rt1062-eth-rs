@@ -26,7 +26,7 @@ use ral::enet;
 use ral::iomuxc;
 use ral::iomuxc_gpr;
 
-use rt1062_eth_rs::RT1062Phy;
+use imxrt_enet::Phy;
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -131,19 +131,19 @@ fn main() -> ! {
 
     delay.block_ms(2000);
 
-    let mut txdt: rt1062_eth_rs::ring::TxDT<512, 12> = Default::default();
-    let mut rxdt: rt1062_eth_rs::ring::RxDT<512, 12> = Default::default();
+    let mut txdt: imxrt_enet::ring::TxDT<512, 12> = Default::default();
+    let mut rxdt: imxrt_enet::ring::RxDT<512, 12> = Default::default();
 
     let mut blocking = |ms| delay.block_ms(ms);
-    rt1062_eth_rs::ring::print_dt(&mut blocking, &txdt, &rxdt);
+    imxrt_enet::ring::print_dt(&mut blocking, &txdt, &rxdt);
 
     blocking(10);
 
-    let mut phy: RT1062Phy<1, 512, 12, 12> =
-        RT1062Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
+    let mut phy: Phy<1, 512, 12, 12> =
+        Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
         blocking(10);
 
-    rt1062_eth_rs::ring::print_dt(&mut blocking, phy.txdt, phy.rxdt);
+    imxrt_enet::ring::print_dt(&mut blocking, phy.txdt, phy.rxdt);
 
     blocking(10);
 

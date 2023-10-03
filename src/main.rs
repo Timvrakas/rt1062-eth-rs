@@ -26,8 +26,7 @@ use ral::enet;
 use ral::iomuxc;
 use ral::iomuxc_gpr;
 
-mod rt1062_eth;
-use rt1062_eth::RT1062Phy;
+use rt1062_eth_rs::RT1062Phy;
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -132,10 +131,10 @@ fn main() -> ! {
 
     delay.block_ms(2000);
 
-    let mut txdt: rt1062_eth::ring::TxDT<512, 12> = Default::default();
-    let mut rxdt: rt1062_eth::ring::RxDT<512, 12> = Default::default();
+    let mut txdt: rt1062_eth_rs::ring::TxDT<512, 12> = Default::default();
+    let mut rxdt: rt1062_eth_rs::ring::RxDT<512, 12> = Default::default();
 
-    rt1062_eth::ring::print_dt(&mut delay, &txdt, &rxdt);
+    rt1062_eth_rs::ring::print_dt(&mut delay, &txdt, &rxdt);
 
     delay.block_ms(10);
 
@@ -143,7 +142,7 @@ fn main() -> ! {
         RT1062Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
         delay.block_ms(10);
 
-    rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+    rt1062_eth_rs::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
 
     delay.block_ms(10);
 

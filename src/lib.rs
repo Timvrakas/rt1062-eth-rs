@@ -1,3 +1,5 @@
+#![no_std]
+
 use smoltcp::phy::{self, DeviceCapabilities, Medium};
 use smoltcp::time::Instant;
 

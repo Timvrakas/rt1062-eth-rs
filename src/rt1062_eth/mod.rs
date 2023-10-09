@@ -184,7 +184,7 @@ impl<'a, const INST: u8, const MTU: usize, const TX_LEN: usize> phy::TxToken
     where
         F: FnOnce(&mut [u8]) -> R,
     {
-        let result = f(&mut self.txdt.bufs[*self.tx_pos]);
+        let result = f(&mut self.txdt.bufs[*self.tx_pos][..len]);
         let desc: &mut TxDescriptor = &mut self.txdt.desc[*self.tx_pos];
         desc.len = len as u16;
         desc.flags |= 0x8C00;

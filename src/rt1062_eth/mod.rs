@@ -11,7 +11,7 @@ use teensy4_bsp as bsp;
 pub mod ring;
 use ring::*;
 
-pub struct RT1062Phy<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
+pub struct RT1062Device<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
 {
     tx_pos: usize,
     rx_pos: usize,
@@ -21,14 +21,14 @@ pub struct RT1062Phy<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, 
 }
 
 impl<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
-    RT1062Phy<'a, INST, MTU, RX_LEN, TX_LEN>
+RT1062Device<'a, INST, MTU, RX_LEN, TX_LEN>
 {
     pub fn new(
         enet_inst: enet::Instance<INST>,
         rxdt: &'a mut RxDT<MTU, RX_LEN>,
         txdt: &'a mut TxDT<MTU, TX_LEN>,
-    ) -> RT1062Phy<'a, INST, MTU, RX_LEN, TX_LEN> {
-        let device = RT1062Phy {
+    ) -> RT1062Device<'a, INST, MTU, RX_LEN, TX_LEN> {
+        let device = RT1062Device {
             tx_pos: 0,
             rx_pos: 0,
             enet_inst: enet_inst,
@@ -99,21 +99,21 @@ impl<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: us
 }
 
 impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize> phy::Device
-    for RT1062Phy<'_, INST, MTU, RX_LEN, TX_LEN>
+    for RT1062Device<'_, INST, MTU, RX_LEN, TX_LEN>
 {
     //these statements, and the associated borrow logic, specifies that the token has the lifetime of the RT1062Phy object. This means there can only ever be each of the TX and RX Tokens.
-    type RxToken<'a> = RT1062PhyRxToken<'a, MTU, RX_LEN> where Self: 'a;
-    type TxToken<'a> = RT1062PhyTxToken<'a, INST, MTU, TX_LEN> where Self: 'a;
+    type RxToken<'a> = RT1062RxToken<'a, MTU, RX_LEN> where Self: 'a;
+    type TxToken<'a> = RT1062TxToken<'a, INST, MTU, TX_LEN> where Self: 'a;
 
     fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         let rxd = &mut self.rxdt.desc[self.rx_pos];
         if (rxd.flags & 0x8000) == 0 {
             let ret = Some((
-                RT1062PhyRxToken {
+                RT1062RxToken {
                     rx_pos: &mut self.rx_pos,
                     rxdt: &mut self.rxdt,
                 },
-                RT1062PhyTxToken {
+                RT1062TxToken {
                     tx_pos: &mut self.tx_pos,
                     enet_inst: &mut self.enet_inst,
                     txdt: &mut self.txdt,
@@ -128,7 +128,7 @@ impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
         let desc: &mut TxDescriptor = &mut self.txdt.desc[self.tx_pos];
         if (desc.flags & 0x8000) == 0x0 {
-            let tok: RT1062PhyTxToken<'_, INST, MTU, TX_LEN> = RT1062PhyTxToken {
+            let tok: RT1062TxToken<'_, INST, MTU, TX_LEN> = RT1062TxToken {
                 tx_pos: &mut self.tx_pos,
                 enet_inst: &mut self.enet_inst,
                 txdt: &mut self.txdt,
@@ -148,12 +148,12 @@ impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
     }
 }
 
-pub struct RT1062PhyRxToken<'a, const MTU: usize, const RX_LEN: usize> {
+pub struct RT1062RxToken<'a, const MTU: usize, const RX_LEN: usize> {
     rx_pos: &'a mut usize,
     rxdt: &'a mut RxDT<MTU, RX_LEN>,
 }
 
-impl<'a, const MTU: usize, const RX_LEN: usize> phy::RxToken for RT1062PhyRxToken<'a, MTU, RX_LEN> {
+impl<'a, const MTU: usize, const RX_LEN: usize> phy::RxToken for RT1062RxToken<'a, MTU, RX_LEN> {
     fn consume<R, F>(self, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
@@ -171,14 +171,14 @@ impl<'a, const MTU: usize, const RX_LEN: usize> phy::RxToken for RT1062PhyRxToke
     }
 }
 
-pub struct RT1062PhyTxToken<'a, const INST: u8, const MTU: usize, const TX_LEN: usize> {
+pub struct RT1062TxToken<'a, const INST: u8, const MTU: usize, const TX_LEN: usize> {
     tx_pos: &'a mut usize,
     enet_inst: &'a mut enet::Instance<INST>,
     txdt: &'a mut TxDT<MTU, TX_LEN>,
 }
 
 impl<'a, const INST: u8, const MTU: usize, const TX_LEN: usize> phy::TxToken
-    for RT1062PhyTxToken<'a, INST, MTU, TX_LEN>
+    for RT1062TxToken<'a, INST, MTU, TX_LEN>
 {
     fn consume<R, F>(self, len: usize, f: F) -> R
     where

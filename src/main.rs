@@ -27,7 +27,7 @@ use ral::iomuxc;
 use ral::iomuxc_gpr;
 
 mod rt1062_eth;
-use rt1062_eth::RT1062Phy;
+use rt1062_eth::RT1062Device;
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -139,8 +139,8 @@ fn main() -> ! {
 
     delay.block_ms(10);
 
-    let mut phy: RT1062Phy<1, 512, 12, 12> =
-        RT1062Phy::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
+    let mut phy: RT1062Device<1, 512, 12, 12> =
+        RT1062Device::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
         delay.block_ms(10);
 
     rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);

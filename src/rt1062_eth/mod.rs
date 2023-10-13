@@ -141,7 +141,7 @@ impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
 
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
-        caps.max_transmission_unit = 1536;
+        caps.max_transmission_unit = MTU;
         caps.max_burst_size = Some(1);
         caps.medium = Medium::Ethernet;
         caps

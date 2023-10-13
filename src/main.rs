@@ -132,14 +132,14 @@ fn main() -> ! {
 
     delay.block_ms(2000);
 
-    let mut txdt: rt1062_eth::ring::TxDT<512, 12> = Default::default();
-    let mut rxdt: rt1062_eth::ring::RxDT<512, 12> = Default::default();
+    let mut txdt: rt1062_eth::ring::TxDT<1536, 12> = Default::default();
+    let mut rxdt: rt1062_eth::ring::RxDT<1536, 12> = Default::default();
 
     rt1062_eth::ring::print_dt(&mut delay, &txdt, &rxdt);
 
     delay.block_ms(10);
 
-    let mut phy: RT1062Device<1, 512, 12, 12> =
+    let mut phy: RT1062Device<1, 1536, 12, 12> =
         RT1062Device::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
         delay.block_ms(10);
 

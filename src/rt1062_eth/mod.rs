@@ -11,8 +11,13 @@ use teensy4_bsp as bsp;
 pub mod ring;
 use ring::*;
 
-pub struct RT1062Device<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
-{
+pub struct RT1062Device<
+    'a,
+    const INST: u8,
+    const MTU: usize,
+    const RX_LEN: usize,
+    const TX_LEN: usize,
+> {
     tx_pos: usize,
     rx_pos: usize,
     enet_inst: enet::Instance<INST>,
@@ -21,7 +26,7 @@ pub struct RT1062Device<'a, const INST: u8, const MTU: usize, const RX_LEN: usiz
 }
 
 impl<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
-RT1062Device<'a, INST, MTU, RX_LEN, TX_LEN>
+    RT1062Device<'a, INST, MTU, RX_LEN, TX_LEN>
 {
     pub fn new(
         enet_inst: enet::Instance<INST>,
@@ -77,7 +82,7 @@ RT1062Device<'a, INST, MTU, RX_LEN, TX_LEN>
         atomic::fence(atomic::Ordering::SeqCst); // let all config/DT memory sync
 
         //let's light this candle!
-        ral::modify_reg!(enet,device.enet_inst,ECR,ETHEREN:1); // enable ethernet
+        ral::modify_reg!(enet,device.enet_inst,ECR,ETHEREN:1, EN1588:1); // enable ethernet
         ral::write_reg!(enet,device.enet_inst,RDAR,RDAR:1); // RxDT ready for receive
 
         return device;

@@ -33,6 +33,9 @@ use rt1062_eth::ring::TxDT;
 
 #[bsp::rt::entry]
 fn main() -> ! {
+    static mut TXDT: TxDT<1536, 12> = TxDT::default();
+    static mut RXDT: RxDT<1536, 12> = RxDT::default();
+
     // These are peripheral instances. Let the board configure these for us.
     // This function can only be called once!
     let instances = board::instances();
@@ -134,15 +137,12 @@ fn main() -> ! {
 
     delay.block_ms(2000);
 
-    static mut TXDT: TxDT<1536, 12> = TxDT::default();
-    static mut RXDT: RxDT<1536, 12> = RxDT::default();
-
-    rt1062_eth::ring::print_dt(&mut delay, unsafe{&TXDT}, unsafe{&RXDT});
+    rt1062_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
 
     delay.block_ms(10);
 
     let mut phy: RT1062Device<1, 1536, 12, 12> =
-        RT1062Device::new(unsafe { enet::ENET1::instance() }, unsafe{&mut RXDT}, unsafe{&mut TXDT});
+        RT1062Device::new(unsafe { enet::ENET1::instance() }, RXDT, TXDT);
         delay.block_ms(10);
 
     rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);

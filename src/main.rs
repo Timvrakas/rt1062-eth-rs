@@ -28,6 +28,8 @@ use ral::iomuxc_gpr;
 
 mod rt1062_eth;
 use rt1062_eth::RT1062Device;
+use rt1062_eth::ring::RxDT;
+use rt1062_eth::ring::TxDT;
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -132,15 +134,15 @@ fn main() -> ! {
 
     delay.block_ms(2000);
 
-    let mut txdt: rt1062_eth::ring::TxDT<1536, 12> = Default::default();
-    let mut rxdt: rt1062_eth::ring::RxDT<1536, 12> = Default::default();
+    static mut TXDT: TxDT<1536, 12> = TxDT::default();
+    static mut RXDT: RxDT<1536, 12> = RxDT::default();
 
-    rt1062_eth::ring::print_dt(&mut delay, &txdt, &rxdt);
+    rt1062_eth::ring::print_dt(&mut delay, unsafe{&TXDT}, unsafe{&RXDT});
 
     delay.block_ms(10);
 
     let mut phy: RT1062Device<1, 1536, 12, 12> =
-        RT1062Device::new(unsafe { enet::ENET1::instance() }, &mut rxdt, &mut txdt);
+        RT1062Device::new(unsafe { enet::ENET1::instance() }, unsafe{&mut RXDT}, unsafe{&mut TXDT});
         delay.block_ms(10);
 
     rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);

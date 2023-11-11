@@ -64,8 +64,8 @@ pub struct TxDT<const MTU: usize, const LEN: usize> {
     pub bufs: [[u8; MTU]; LEN],
 }
 
-impl<const MTU: usize, const LEN: usize> Default for RxDT<MTU, LEN> {
-    fn default() -> RxDT<MTU, LEN> {
+impl<const MTU: usize, const LEN: usize> RxDT<MTU, LEN> {
+    pub const fn default() -> RxDT<MTU, LEN> {
         RxDT {
             desc: [RxDescriptor {
                 len: 0,
@@ -88,8 +88,8 @@ impl<const MTU: usize, const LEN: usize> Default for RxDT<MTU, LEN> {
     }
 }
 
-impl<const MTU: usize, const LEN: usize> Default for TxDT<MTU, LEN> {
-    fn default() -> TxDT<MTU, LEN> {
+impl<const MTU: usize, const LEN: usize> TxDT<MTU, LEN> {
+    pub const fn default() -> TxDT<MTU, LEN> {
         TxDT {
             desc: [TxDescriptor {
                 len: 0,

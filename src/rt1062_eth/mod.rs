@@ -1,4 +1,4 @@
-use smoltcp::phy::{self, DeviceCapabilities, Medium};
+use smoltcp::phy::{self, DeviceCapabilities, Medium, Checksum};
 use smoltcp::time::Instant;
 
 use core::ptr::addr_of;
@@ -149,6 +149,7 @@ impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
         caps.max_transmission_unit = MTU;
         caps.max_burst_size = Some(1);
         caps.medium = Medium::Ethernet;
+        caps.checksum.ipv4 = Checksum::Both;
         caps
     }
 }

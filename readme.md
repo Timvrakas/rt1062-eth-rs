@@ -1,4 +1,5 @@
 cargo objcopy --release -- -O ihex out.hex
+cargo objcopy --example teensy_ethernet --release -- -O ihex out.hex
 
 /home/timv/teensy_loader_cli/teensy_loader_cli --mcu TEENSY41 out.hex -w
 

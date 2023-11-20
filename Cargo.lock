@@ -191,6 +191,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "imxrt-eth"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "embedded-hal",
+ "log",
+ "smoltcp",
+ "static_assertions",
+ "struct-pad",
+ "teensy4-bsp",
+ "teensy4-panic",
+]
+
+[[package]]
 name = "imxrt-hal"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -345,20 +359,6 @@ name = "ral-registers"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46b71a9d9206e8b46714c74255adcaea8b11e0350c1d8456165073c3f75fc81a"
-
-[[package]]
-name = "rt1062-eth-rs"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "embedded-hal",
- "log",
- "smoltcp",
- "static_assertions",
- "struct-pad",
- "teensy4-bsp",
- "teensy4-panic",
-]
 
 [[package]]
 name = "rustc_version"

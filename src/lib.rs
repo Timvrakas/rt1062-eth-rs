@@ -1,3 +1,5 @@
+#![no_std]
+
 use smoltcp::phy::{self, DeviceCapabilities, Medium, Checksum};
 use smoltcp::time::Instant;
 
@@ -10,6 +12,8 @@ use teensy4_bsp as bsp;
 
 pub mod ring;
 use ring::*;
+
+pub mod teensy_eth;
 
 pub struct RT1062Device<
     'a,

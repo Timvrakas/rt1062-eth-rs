@@ -21,11 +21,7 @@ use bsp::hal::timer::Blocking;
 use bsp::hal;
 use bsp::ral::enet;
 
-mod rt1062_eth;
-use rt1062_eth::RT1062Device;
-use rt1062_eth::ring::RxDT;
-use rt1062_eth::ring::TxDT;
-mod teensy_eth;
+use imxrt_eth::{RT1062Device,ring::RxDT,ring::TxDT,teensy_eth};
 
 #[bsp::rt::entry]
 fn main() -> ! {
@@ -63,12 +59,12 @@ fn main() -> ! {
 
     teensy_eth::teensy_setup_mac(&mut gpio2, &mut delay);
 
-    rt1062_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
+    imxrt_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
 
     let mut phy: RT1062Device<1, 1514, 12, 12> =
         RT1062Device::new(unsafe { enet::ENET1::instance() }, RXDT, TXDT);
 
-    rt1062_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+    imxrt_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
 
     teensy_eth::teensy_setup_phy(&mut phy);
 
@@ -123,7 +119,7 @@ fn main() -> ! {
         delay.block_ms(10);
         let _x = iface.poll(Instant::from_millis(time), &mut phy, &mut sockets);
 
-        if (time % 100) < 10 {
+        if (time % 1000) < 10 {
             let z: &mut udp::Socket = sockets.get_mut(client_handle);
 
             if !z.can_send() {

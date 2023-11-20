@@ -25,8 +25,8 @@ use imxrt_eth::{RT1062Device,ring::RxDT,ring::TxDT,teensy_eth};
 
 #[bsp::rt::entry]
 fn main() -> ! {
-    static mut TXDT: TxDT<1514, 12> = TxDT::default();
-    static mut RXDT: RxDT<1514, 12> = RxDT::default();
+    static mut TXDT: TxDT<1536, 12> = TxDT::default();
+    static mut RXDT: RxDT<1536, 12> = RxDT::default();
 
     // These are peripheral instances. Let the board configure these for us.
     // This function can only be called once!
@@ -61,7 +61,7 @@ fn main() -> ! {
 
     imxrt_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
 
-    let mut phy: RT1062Device<1, 1514, 12, 12> =
+    let mut phy: RT1062Device<1, 1536, 12, 12> =
         RT1062Device::new(unsafe { enet::ENET1::instance() }, RXDT, TXDT);
 
     imxrt_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);

@@ -98,7 +98,7 @@ pub fn teensy_setup_mac(gpio2: &mut hal::gpio::Port<2>, delay:&mut Blocking<hal:
     phy_rst.set();
 }
 
-pub fn teensy_setup_phy(phy: &mut RT1062Device<1, 1514, 12, 12>){
+pub fn teensy_setup_phy(phy: &mut RT1062Device<1, 1536, 12, 12>){
     phy.mdio_write(0, 0x18, 0x0280); // LED shows link status, active high
     phy.mdio_write(0, 0x17, 0x0081); // config for 50 MHz clock input
 

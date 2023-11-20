@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-use bsp::board;
 use smoltcp::iface::Config;
 use smoltcp::iface::Interface;
 use smoltcp::iface::SocketSet;
@@ -13,14 +12,14 @@ use smoltcp::wire::IpAddress;
 use smoltcp::wire::IpCidr;
 use smoltcp::wire::IpEndpoint;
 use smoltcp::wire::IpListenEndpoint;
-use teensy4_bsp as bsp;
-use teensy4_panic as _;
 
-use bsp::hal::timer::Blocking;
+use board;
+use imxrt_hal as hal;
+use imxrt_ral as ral;
+use imxrt_rt as rt;
+use ral::enet;
 
-use bsp::hal;
-use bsp::ral;
-use bsp::ral::enet;
+use hal::timer::Blocking;
 
 use ral::ccm;
 use ral::ccm_analog;
@@ -30,38 +29,22 @@ use hal::iomuxc::PullKeeper;
 
 use imxrt_eth::{RT1062Device,ring::RxDT,ring::TxDT};
 
-#[bsp::rt::entry]
+#[rt::entry]
 fn main() -> ! {
     static mut TXDT: TxDT<1536, 12> = TxDT::default();
     static mut RXDT: RxDT<1536, 12> = RxDT::default();
 
-    // These are peripheral instances. Let the board configure these for us.
-    // This function can only be called once!
-    let instances = board::instances();
+    let (board::Common { gpt1, .. }, 
+        board::Specifics { mut ports, .. }
+    ) = board::new();
 
-    // Driver resources that are configured by the board. For more information,
-    // see the `board` documentation.
-    let board::Resources {
-        // This is a hardware timer. We'll use it for blocking delays.
-        mut gpt1,
-        // These are low-level USB resources. We'll pass these to a function
-        // that sets up USB logging.
-        usb,
-        mut gpio2,
-        ..
-    } = board::t41(instances);
-
-    // Configures the GPT1 timer to run at GPT1_FREQUENCY. See the
-    // constants below for more information.
-    gpt1.disable();
-    gpt1.set_divider(GPT1_DIVIDER);
-    gpt1.set_clock_source(GPT1_CLOCK_SOURCE);
+    let mut gpio2 = ports.button_mut();
 
     // Convenience for blocking delays.
     let mut delay: Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY> =
         Blocking::<_, GPT1_FREQUENCY>::from_gpt(gpt1);
 
-    bsp::LoggingFrontend::default_log().register_usb(usb);
+    // board::logging::Frontend::default_log().register_usb(usb);
     delay.block_ms(2000);
 
     setup_mac(&mut gpio2, &mut delay);
@@ -250,16 +233,5 @@ pub fn setup_phy(phy: &mut RT1062Device<1, 1536, 12, 12>){
     log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
 }
 
-// We're responsible for configuring our timers.
-// This example uses PERCLK_CLK as the GPT1 clock source,
-// and it configures a 1 KHz GPT1 frequency by computing a
-// GPT1 divider.
-use bsp::hal::gpt::ClockSource;
-
 /// The intended GPT1 frequency (Hz).
 const GPT1_FREQUENCY: u32 = 1_000;
-/// Given this clock source...
-const GPT1_CLOCK_SOURCE: ClockSource = ClockSource::HighFrequencyReferenceClock;
-/// ... the root clock is PERCLK_CLK. To configure a GPT1 frequency,
-/// we need a divider of...
-const GPT1_DIVIDER: u32 = board::PERCLK_FREQUENCY / GPT1_FREQUENCY;

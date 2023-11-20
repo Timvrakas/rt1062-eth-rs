@@ -3,5 +3,9 @@ target = "thumbv7em-none-eabihf"
 
 [target.thumbv7em-none-eabihf]
 rustflags = [
-    "-C", "link-arg=-Tt4link.x",
+    "-C", "link-arg=-Timxrt-link.x",
+    "-C", "link-arg=-Tdefmt.x",
+    "-C", "link-arg=-Tdevice.x",
+    "-C", "link-arg=-error-limit=0",
+    "-C", "link-arg=-nmagic",
 ]

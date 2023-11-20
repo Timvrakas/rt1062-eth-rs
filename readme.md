@@ -35,3 +35,6 @@ Caveats:
 - The ENET uDMA engine maintains pointers/counters to the last/next used TX and RX descriptor table entries. When TDAR is asserted, only the "next" descriptor is checked for readiness (and any subsequent until exahusted). Thus, you can't populate any free descriptor, you need to maintain your own pointer so that you populate the next entry. For RX, you don't need to scan the entire descriptor table for non-empty entries, just the "next" one.
 - There may be data caching going on. I don't have a complete understanding, but out of an abundance of caution, I added atomic fences. More work needed.
 - There's only 16k allocated for the stack in the teensy-rs runtime, and there's nothing to warn you if you break that limit. You should keep large data structures statically allocated.
+
+
+cargo objcopy --features=teensy4 --target=thumbv7em-none-eabihf --example=teensy_demo --release -- -O ihex out.hex

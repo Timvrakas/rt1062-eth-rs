@@ -4,6 +4,17 @@ version = "0.1.0"
 authors = ["Tim Vrakas <tim@vrakaslabs.net>"]
 edition = "2021"
 
+[workspace.package]
+edition = "2021"
+
+[workspace.dependencies]
+imxrt-hal = "0.5"
+imxrt-iomuxc = "0.2.1"
+imxrt-log = {version = "0.1", default-features = false, features = ["log", "lpuart", "usbd"] }
+imxrt-ral = "0.5"
+imxrt-rt = "0.1"
+imxrt-usbd = "0.2"
+
 [dependencies]
 cortex-m = "0.7.2"
 embedded-hal = "0.2"
@@ -13,38 +24,31 @@ teensy4-panic = "0.2"
 smoltcp = { version = "0.10.0", default-features = false, features = ["log","proto-ipv4","medium-ethernet","medium-ip","socket-udp","proto-igmp","socket-icmp","socket-raw"] }
 struct-pad = "0.2.0"
 static_assertions = "1.1.0"
+board = { path = "board", features = ["imxrt-log"]}
+imxrt-rt = { workspace = true }
+imxrt-ral = { workspace = true }
+imxrt-hal = { workspace = true }
 
-[dependencies.imxrt-ral]
-version = "0.5"
-
-[dependencies.imxrt-hal]
-version = "0.5.3"
 
 [features]
-device-selected = []
-imxrt1062 = ["imxrt-ral/imxrt1062", "device-selected"]
-imxrt1176_cm7 = ["imxrt-ral/imxrt1176_cm7", "device-selected"]
+teensy4 = ["board/teensy4"]
+imxrt1170evk = ["board/imxrt1170evk-cm7"]
 
 [[example]]
 name = "teensy_demo"
-required-features = ["teensy4-bsp"]
+required-features = ["teensy4"]
 
 [[example]]
 name = "rt1176_evk_demo"
-required-features = ["imxrt1176_cm7"]
+required-features = ["imxrt1170evk"]
 
-[dependencies.teensy4-bsp]
-optional = true
-version = "0.4"
-features = [
-    # Use the BSP's runtime. This lets you write your
-    # `main()` function.
-    "rt",
-    # Remove me if you don't want logging.
-    "usb-logging",
-]
+[profile.dev]
+opt-level = 1
+panic = "abort"
 
-# Don't optimize build dependencies, like proc macros.
-# Helps with build times.
-[profile.release.build-override]
-opt-level = 0
+[profile.release]
+opt-level = "z"
+lto = "fat"
+panic = "abort"
+overflow-checks = true
+

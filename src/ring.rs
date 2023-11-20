@@ -5,8 +5,8 @@ use struct_pad::*;
 
 use struct_pad::PadU16;
 use struct_pad::PadU8;
-use teensy4_bsp as bsp;
-use teensy4_bsp::hal::timer::Blocking;
+use imxrt_hal as hal;
+use hal::timer::Blocking;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -112,7 +112,7 @@ impl<const MTU: usize, const LEN: usize> TxDT<MTU, LEN> {
 
 #[allow(dead_code)]
 pub fn print_dt<const MTU: usize, const TX_LEN: usize, const RX_LEN:usize>(
-    delay: &mut Blocking<bsp::hal::gpt::Gpt<1>, 1000>,
+    delay: &mut Blocking<hal::gpt::Gpt<1>, 1000>,
     txdt: &TxDT<MTU, TX_LEN>,
     rxdt: &RxDT<MTU, RX_LEN>,
 ) {

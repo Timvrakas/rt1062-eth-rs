@@ -5,15 +5,12 @@ use smoltcp::time::Instant;
 
 use core::ptr::addr_of;
 
-use bsp::ral;
+use imxrt_ral as ral;
 use core::sync::atomic;
 use ral::enet;
-use teensy4_bsp as bsp;
 
 pub mod ring;
 use ring::*;
-
-pub mod teensy_eth;
 
 pub struct RT1062Device<
     'a,

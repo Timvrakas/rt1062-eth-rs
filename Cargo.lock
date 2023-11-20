@@ -115,7 +115,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -196,6 +196,8 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "embedded-hal",
+ "imxrt-hal",
+ "imxrt-ral",
  "log",
  "smoltcp",
  "static_assertions",
@@ -224,9 +226,9 @@ dependencies = [
 
 [[package]]
 name = "imxrt-iomuxc"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcc265810697eb1ae9003f2c32da7b389b465a8485a934941a9d72be16713f60"
+checksum = "c0393bebbbfc900bea1e91ea4114d2ee2f85924ee15dd6c2860df1d3ffab8e3e"
 
 [[package]]
 name = "imxrt-log"
@@ -459,9 +461,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.38"
+version = "2.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e96b79aaa137db8f61e26363a0c9b47d8b4ec75da28b7d1d614c2303e232408b"
+checksum = "23e78b90f2fcf45d3e842032ce32e3f2d1545ba6636271dcbf24fa306d87be7a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -470,9 +472,9 @@ dependencies = [
 
 [[package]]
 name = "teensy4-bsp"
-version = "0.4.4"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a920208238f8ee2d2a4e29fdaf923a4025750a76baab845be96ec1d4ef184be8"
+checksum = "f17a337aa204c141efcfa0e30e9949705dcb78e146292a1ee7ad652c8681022a"
 dependencies = [
  "cortex-m",
  "imxrt-hal",
@@ -509,22 +511,22 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.49"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1177e8c6d7ede7afde3585fd2513e611227efd6481bd78d2e82ba1ce16557ed4"
+checksum = "f9a7210f5c9a7156bb50aa36aed4c95afb51df0df00713949448cf9e97d382d2"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.49"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10712f02019e9288794769fba95cd6847df9874d49d871d062172f9dd41bc4cc"
+checksum = "266b2e40bc00e5a6c09c3584011e08b06f123c00362c92b975ba9843aaaa14b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]

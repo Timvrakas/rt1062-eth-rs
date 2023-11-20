@@ -5,7 +5,7 @@ authors = ["Tim Vrakas <tim@vrakaslabs.net>"]
 edition = "2021"
 
 [dependencies]
-cortex-m = "0.7"
+cortex-m = "0.7.2"
 embedded-hal = "0.2"
 # Remove me if you don't want logging.
 log = "0.4"
@@ -14,7 +14,27 @@ smoltcp = { version = "0.10.0", default-features = false, features = ["log","pro
 struct-pad = "0.2.0"
 static_assertions = "1.1.0"
 
+[dependencies.imxrt-ral]
+version = "0.5"
+
+[dependencies.imxrt-hal]
+version = "0.5.3"
+
+[features]
+device-selected = []
+imxrt1062 = ["imxrt-ral/imxrt1062", "device-selected"]
+imxrt1176_cm7 = ["imxrt-ral/imxrt1176_cm7", "device-selected"]
+
+[[example]]
+name = "teensy_demo"
+required-features = ["teensy4-bsp"]
+
+[[example]]
+name = "rt1176_evk_demo"
+required-features = ["imxrt1176_cm7"]
+
 [dependencies.teensy4-bsp]
+optional = true
 version = "0.4"
 features = [
     # Use the BSP's runtime. This lets you write your

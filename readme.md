@@ -1,8 +1,8 @@
 cargo objcopy --release -- -O ihex out.hex
 cargo objcopy --example teensy_ethernet --release -- -O ihex out.hex
 
-cargo b --example teensy_demo --features="teensy4-bsp"
-cargo b --example rt1176_evk_demo --features="imxrt1176_cm7"
+cargo b --example teensy_demo --features="teensy4"
+cargo b --example rt1176_evk_demo --features="imxrt1170evk"
 
 /home/timv/teensy_loader_cli/teensy_loader_cli --mcu TEENSY41 out.hex -w
 

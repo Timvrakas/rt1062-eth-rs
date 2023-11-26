@@ -20,7 +20,7 @@ cortex-m = "0.7.2"
 embedded-hal = "0.2"
 # Remove me if you don't want logging.
 log = "0.4"
-teensy4-panic = "0.2"
+teensy4-panic = { version = "0.2", optional = true }
 smoltcp = { version = "0.10.0", default-features = false, features = ["log","proto-ipv4","medium-ethernet","medium-ip","socket-udp","proto-igmp","socket-icmp","socket-raw"] }
 struct-pad = "0.2.0"
 static_assertions = "1.1.0"
@@ -31,7 +31,8 @@ imxrt-hal = { workspace = true }
 
 
 [features]
-teensy4 = ["board/teensy4"]
+default = ["imxrt1170evk"]
+teensy4 = ["board/teensy4","teensy4-panic"]
 imxrt1170evk = ["board/imxrt1170evk-cm7"]
 
 [[example]]

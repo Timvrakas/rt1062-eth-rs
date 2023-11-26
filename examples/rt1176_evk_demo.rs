@@ -17,45 +17,43 @@ use imxrt_hal as hal;
 use imxrt_ral as ral;
 use imxrt_rt as rt;
 
-use ral::ccm;
+// use ral::ccm;
 use ral::enet;
-use ral::iomuxc_gpr;
-use ral::iomuxc;
-use hal::iomuxc::PullKeeper;
+// use ral::iomuxc_gpr;
+// use ral::iomuxc;
+// use hal::iomuxc::PullKeeper;
+use hal::timer::Blocking;
+
+use board::GPT1_FREQUENCY;
 
 use imxrt_eth::{RT1062Device,ring::RxDT,ring::TxDT};
-
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    log::error!("{}", info);
-    loop {
-        
-    }
-}
 
 #[rt::entry]
 fn main() -> ! {
     static mut TXDT: TxDT<1536, 12> = TxDT::default();
     static mut RXDT: RxDT<1536, 12> = RxDT::default();
 
-    // These are peripheral instances. Let the board configure these for us.
-    // This function can only be called once!
-    //let instances = board::instances();
-
-    // Configures the GPT1 timer to run at GPT1_FREQUENCY. See the
-    // constants below for more information.
-    // gpt1.disable();
-    // gpt1.set_divider(GPT1_DIVIDER);
-    // gpt1.set_clock_source(GPT1_CLOCK_SOURCE);
+    let (board::Common { gpt1, mut dma, .. }, board::Specifics { console, .. }) = board::new();
 
     // Convenience for blocking delays.
-    // let mut delay: Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY> =
-    //     Blocking::<_, GPT1_FREQUENCY>::from_gpt(gpt1);
+    let mut delay: Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY> =
+        Blocking::<_, GPT1_FREQUENCY>::from_gpt(gpt1);
 
-    //bsp::LoggingFrontend::default_log().register_usb(usb);
-    //delay.block_ms(2000);
 
-    //teensy_setup_mac(&mut gpio2, &mut delay);
+    let dma_a = dma[board::BOARD_DMA_A_INDEX].take().unwrap();
+    let mut poller = board::logging::lpuart(board::logging::Frontend::Log, console, dma_a);
+
+    delay.block_ms(2000);
+    log::info!("Here's a log!");
+    delay.block_ms(100);
+    poller.poll();
+
+    //RTT?
+    //Debugger UART?
+    //No interrupt for now.
+
+
+    //setup_mac(&mut gpio2, &mut delay);
 
     //imxrt_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
 
@@ -64,7 +62,7 @@ fn main() -> ! {
 
     //imxrt_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
 
-    //teensy_setup_phy(&mut phy);
+    //setup_phy(&mut phy);
 
     let mut time: i64 = 0;
 
@@ -145,7 +143,7 @@ fn main() -> ! {
     }
 }
 
-// pub fn teensy_setup_mac(gpio2: &mut hal::gpio::Port<2>, delay:&mut Blocking<hal::gpt::Gpt<1>, 1000>){
+// pub fn setup_mac(gpio2: &mut hal::gpio::Port<2>, delay:&mut Blocking<hal::gpt::Gpt<1>, 1000>){
 
 //     //Enable clock distro, both to the ethernet MAC and out the PHY pins
 //     let ccm1 = unsafe { ral::ccm::CCM::instance() };
@@ -231,7 +229,7 @@ fn main() -> ! {
 //     phy_rst.set();
 // }
 
-// pub fn teensy_setup_phy(phy: &mut RT1062Device<1, 1536, 12, 12>){
+// pub fn setup_phy(phy: &mut RT1062Device<1, 1536, 12, 12>){
 //     phy.mdio_write(0, 0x18, 0x0280); // LED shows link status, active high
 //     phy.mdio_write(0, 0x17, 0x0081); // config for 50 MHz clock input
 
@@ -240,17 +238,3 @@ fn main() -> ! {
 //     let phycr = phy.mdio_read(0, 0x19);
 //     log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
 // }
-
-// We're responsible for configuring our timers.
-// This example uses PERCLK_CLK as the GPT1 clock source,
-// and it configures a 1 KHz GPT1 frequency by computing a
-// GPT1 divider.
-use hal::gpt::ClockSource;
-
-// The intended GPT1 frequency (Hz).
-//const GPT1_FREQUENCY: u32 = 1_000;
-// Given this clock source...
-//const GPT1_CLOCK_SOURCE: ClockSource = ClockSource::HighFrequencyReferenceClock;
-// ... the root clock is PERCLK_CLK. To configure a GPT1 frequency,
-// we need a divider of...
-//const GPT1_DIVIDER: u32 = board::PERCLK_FREQUENCY / GPT1_FREQUENCY;

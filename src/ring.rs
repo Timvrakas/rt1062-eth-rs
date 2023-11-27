@@ -110,9 +110,11 @@ impl<const MTU: usize, const LEN: usize> TxDT<MTU, LEN> {
     }
 }
 
+use board::GPT1_FREQUENCY;
+
 #[allow(dead_code)]
 pub fn print_dt<const MTU: usize, const TX_LEN: usize, const RX_LEN:usize>(
-    delay: &mut Blocking<hal::gpt::Gpt<1>, 1000>,
+    delay: &mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>,
     txdt: &TxDT<MTU, TX_LEN>,
     rxdt: &RxDT<MTU, RX_LEN>,
 ) {

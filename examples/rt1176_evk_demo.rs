@@ -17,11 +17,9 @@ use imxrt_hal as hal;
 use imxrt_ral as ral;
 use imxrt_rt as rt;
 
-// use ral::ccm;
 use ral::enet;
-// use ral::iomuxc_gpr;
-// use ral::iomuxc;
-// use hal::iomuxc::PullKeeper;
+use ral::iomuxc_gpr;
+use ral::iomuxc;
 use hal::timer::Blocking;
 
 use board::GPT1_FREQUENCY;
@@ -45,24 +43,23 @@ fn main() -> ! {
 
     delay.block_ms(2000);
     log::info!("Here's a log!");
-    delay.block_ms(100);
     poller.poll();
 
-    //RTT?
-    //Debugger UART?
-    //No interrupt for now.
+    setup_mac(&mut delay);
 
-
-    //setup_mac(&mut gpio2, &mut delay);
-
-    //imxrt_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
+    imxrt_eth::ring::print_dt(&mut delay, &TXDT, &RXDT);
+    poller.poll();
 
     let mut phy: RT1062Device<0, 1536, 12, 12> =
         RT1062Device::new(unsafe { enet::ENET::instance() }, RXDT, TXDT);
 
-    //imxrt_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+    imxrt_eth::ring::print_dt(&mut delay, phy.txdt, phy.rxdt);
+    poller.poll();
 
-    //setup_phy(&mut phy);
+    for _ in 1..=100 {
+        setup_phy(&mut phy);
+        poller.poll();
+    }
 
     let mut time: i64 = 0;
 
@@ -106,13 +103,16 @@ fn main() -> ! {
         }
     }
 
+    poller.poll();
+
     let client_handle = sockets.add(client_socket);
 
     let test: [u8; 3] = [0x69, 0x69, 0x69];
 
     loop {
+        poller.poll();
         time += 10;
-        //delay.block_ms(10);
+        delay.block_ms(10);
         let _x = iface.poll(Instant::from_millis(time), &mut phy, &mut sockets);
 
         if (time % 1000) < 10 {
@@ -143,98 +143,120 @@ fn main() -> ! {
     }
 }
 
-// pub fn setup_mac(gpio2: &mut hal::gpio::Port<2>, delay:&mut Blocking<hal::gpt::Gpt<1>, 1000>){
+pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>){
 
-//     //Enable clock distro, both to the ethernet MAC and out the PHY pins
-//     let ccm1 = unsafe { ral::ccm::CCM::instance() };
-//     let ccm_analog1 = unsafe { ral::ccm_analog::CCM_ANALOG::instance() };
-//     let mux_gpr1 = unsafe { ral::iomuxc_gpr::IOMUXC_GPR::instance() };
-//     let mux1 = unsafe { ral::iomuxc::IOMUXC::instance() };
+    //Enable clock distro, both to the ethernet MAC and out the PHY pins
+    let mut ccm1 = unsafe { ral::ccm::CCM::instance() };
+    let mux_gpr1 = unsafe { ral::iomuxc_gpr::IOMUXC_GPR::instance() };
+    let mux1 = unsafe { ral::iomuxc::IOMUXC::instance() };
 
-//     ral::modify_reg!(ccm,ccm1,CCGR1,CG5:3); // need to fix this for 1062
+    board::imxrt11xx::clock_tree::configure_enet1(&mut ccm1);
 
-//     // Configure the PLL for 50MHz
-//     ral::write_reg!(ccm_analog,ccm_analog1,PLL_ENET_CLR,BYPASS_CLK_SRC:3,ENET2_DIV_SELECT:3,DIV_SELECT:3,POWERDOWN:1);
-//     ral::write_reg!(ccm_analog,ccm_analog1,PLL_ENET_SET,ENET_25M_REF_EN:1,ENABLE:1,BYPASS:1,DIV_SELECT:1);
+    ral::modify_reg!(ral::ccm,ccm1,LPCG112_DIRECT,ON:1); //do we need this, or does it happen automatically
 
-//     // Start the PPL and wait for a lock
-//     while ral::read_reg!(ccm_analog, ccm_analog1, PLL_ENET_SET, LOCK) == 0 {}
-//     ral::write_reg!(ccm_analog,ccm_analog1,PLL_ENET_CLR,BYPASS:1);
+    // send refclock to pinmux
+    ral::modify_reg!(iomuxc_gpr,mux_gpr1,GPR4,ENET_REF_CLK_DIR:1);
 
-//     // send refclock to pinmux
-//     ral::modify_reg!(iomuxc_gpr,mux_gpr1,GPR1,ENET1_CLK_SEL:0,ENET_IPG_CLK_S_EN:0,ENET1_TX_CLK_DIR:1);
+    // confiure pin muxes
 
-//     let mut pads = hal::iomuxc::into_pads(unsafe { ral::iomuxc::Instance::instance() });
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_02,MUX_MODE:1,SION:0); //TXD0
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_02,SRE:0,DSE:1);
 
-//     const ENET_IO_PD: hal::iomuxc::Config = hal::iomuxc::Config::zero()
-//     .set_pull_keeper(Some(PullKeeper::Pulldown100k))
-//     .set_speed(hal::iomuxc::Speed::Max)
-//     .set_drive_strength(hal::iomuxc::DriveStrength::R0_5)
-//     .set_slew_rate(hal::iomuxc::SlewRate::Fast);
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_03,MUX_MODE:1,SION:0); //TXD1
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_03,SRE:0,DSE:1);
 
-//     const ENET_IO_PU: hal::iomuxc::Config = ENET_IO_PD
-//     .set_pull_keeper(Some(PullKeeper::Pullup22k));
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_04,MUX_MODE:1,SION:0); //TXEN
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_04,SRE:0,DSE:1);
 
-//     const XI_CONFIG: hal::iomuxc::Config = hal::iomuxc::Config::zero()
-//     .set_drive_strength(hal::iomuxc::DriveStrength::R0_6)
-//     .set_slew_rate(hal::iomuxc::SlewRate::Fast);
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_05,MUX_MODE:2,SION:1); //REF_CLK (50MHz out)
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_05,SRE:1,DSE:1);
+
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_06,MUX_MODE:1,SION:0); //RXD0
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_06,SRE:0,DSE:1);
+
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_07,MUX_MODE:1,SION:0); //RXD1
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_07,SRE:0,DSE:1);
+
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_08,MUX_MODE:1,SION:0); //RX_DV
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_08,SRE:0,DSE:1);
+
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_AD_32,MUX_MODE:3,SION:0); //MDC (1.5k PU on evk)
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_AD_32,SRE:0,DSE:1);
+
+    ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_AD_33,MUX_MODE:3,SION:0); //MDIO (1.5k PU on evk)
+    ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_AD_33,SRE:0,DSE:1);
     
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p04, ENET_IO_PD); //RXD0
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p04, 3);
+    let pads = hal::iomuxc::into_pads(
+        unsafe { ral::iomuxc::Instance::instance() },
+        unsafe { ral::iomuxc_lpsr::Instance::instance()});
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p05, ENET_IO_PD); //RXD1
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p05, 3);
+    // const ENET_IO_PD: hal::iomuxc::Config = hal::iomuxc::Config::zero()
+    // .set_pull_keeper(Some(PullKeeper::Pulldown100k))
+    // .set_speed(hal::iomuxc::Speed::Max)
+    // .set_drive_strength(hal::iomuxc::DriveStrength::R0_5)
+    // .set_slew_rate(hal::iomuxc::SlewRate::Fast);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p06, ENET_IO_PD); //DV
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p06, 3);
+    // const ENET_IO_PU: hal::iomuxc::Config = ENET_IO_PD
+    // .set_pull_keeper(Some(PullKeeper::Pullup22k));
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p11, ENET_IO_PD); //RXER
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p11, 3);
+    // const XI_CONFIG: hal::iomuxc::Config = hal::iomuxc::Config::zero()
+    // .set_drive_strength(hal::iomuxc::DriveStrength::R0)
+    // .set_slew_rate(hal::iomuxc::SlewRate::Fast);
+    
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p06, ENET_IO_PD); //RXD0
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p06, 1);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p07, ENET_IO_PU); //TXD0
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p07, 3);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p07, ENET_IO_PD); //RXD1
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p07, 1);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p08, ENET_IO_PU); //TXD1
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p08, 3);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p08, ENET_IO_PD); //DV
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p08, 1);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p09, ENET_IO_PU); //TXEN
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p09, 3);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p09, ENET_IO_PD); //RXER
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p09, 1);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p10, XI_CONFIG); //XI (To Phy)
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p10, 6);
-//     hal::iomuxc::set_sion(&mut pads.gpio_b1.p10);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p02, ENET_IO_PU); //TXD0
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p02, 1);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p15, ENET_IO_PU); //MDIO
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p15, 0);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p03, ENET_IO_PU); //TXD1
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p03, 1);
 
-//     hal::iomuxc::configure(&mut pads.gpio_b1.p14, ENET_IO_PU); //MDC
-//     hal::iomuxc::alternate(&mut pads.gpio_b1.p14, 0);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p04, ENET_IO_PU); //TXEN
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p04, 1);
 
-//     //this needs iomuxc support
-//     ral::write_reg!(iomuxc, mux1, ENET_MDIO_SELECT_INPUT, DAISY:2);
-//     ral::write_reg!(iomuxc, mux1, ENET0_RXDATA_SELECT_INPUT,DAISY:1);
-//     ral::write_reg!(iomuxc, mux1, ENET1_RXDATA_SELECT_INPUT,DAISY:1);
-//     ral::write_reg!(iomuxc, mux1, ENET_RXEN_SELECT_INPUT,DAISY:1);
-//     ral::write_reg!(iomuxc, mux1, ENET_RXERR_SELECT_INPUT,DAISY:1);
-//     ral::write_reg!(iomuxc, mux1, ENET_IPG_CLK_RMII_SELECT_INPUT, DAISY:1);
+    // hal::iomuxc::configure(&mut pads.gpio_disp_b2.p05, XI_CONFIG); //XI (To Phy)
+    // hal::iomuxc::alternate(&mut pads.gpio_disp_b2.p05, 2); // "ENET_REF_CLK"
+    // hal::iomuxc::set_sion(&mut pads.gpio_disp_b2.p05);
 
-//     let phy_shdn = gpio2.output(pads.gpio_b0.p15);
-//     let phy_rst = gpio2.output(pads.gpio_b0.p14);
+    // hal::iomuxc::configure(&mut pads.gpio_ad.p33, ENET_IO_PU); //MDIO
+    // hal::iomuxc::alternate(&mut pads.gpio_ad.p33, 0);
 
-//     phy_shdn.clear();
-//     phy_rst.clear();
-//     delay.block_ms(50);
-//     phy_shdn.set();
-//     delay.block_ms(50);
-//     phy_rst.set();
-// }
+    // hal::iomuxc::configure(&mut pads.gpio_ad.p32, ENET_IO_PU); //MDC
+    // hal::iomuxc::alternate(&mut pads.gpio_ad.p32, 0);
 
-// pub fn setup_phy(phy: &mut RT1062Device<1, 1536, 12, 12>){
-//     phy.mdio_write(0, 0x18, 0x0280); // LED shows link status, active high
-//     phy.mdio_write(0, 0x17, 0x0081); // config for 50 MHz clock input
+    //this needs iomuxc support
+    ral::write_reg!(iomuxc, mux1, ENET_IPG_CLK_RMII_SELECT_INPUT, DAISY:1); //what is this one for?
+    ral::write_reg!(iomuxc, mux1, ENET_MAC0_MDIO_SELECT_INPUT, DAISY:1);
+    ral::write_reg!(iomuxc, mux1, ENET_MAC0_RXDATA_SELECT_INPUT_0, DAISY:1);
+    ral::write_reg!(iomuxc, mux1, ENET_MAC0_RXDATA_SELECT_INPUT_1, DAISY:1);
+    ral::write_reg!(iomuxc, mux1, ENET_MAC0_RXEN_SELECT_INPUT, DAISY:1);
+    ral::write_reg!(iomuxc, mux1, ENET_MAC0_RXERR_SELECT_INPUT, DAISY:1);
+    ral::write_reg!(iomuxc, mux1, ENET_MAC0_TXCLK_SELECT_INPUT, DAISY:1); //what is this one for?
 
-//     let rcsr = phy.mdio_read(0, 0x17);
-//     let ledcr = phy.mdio_read(0, 0x18);
-//     let phycr = phy.mdio_read(0, 0x19);
-//     log::info!("RCSR:{rcsr}, LEDCR:{ledcr}, PHYCR:{phycr}");
-// }
+    let gpio6 = unsafe { ral::gpio::GPIO6::instance() };
+    let mut gpio6 = hal::gpio::Port::new(gpio6);
+
+    let phy_rst = gpio6.output(pads.gpio_lpsr.p12);
+    phy_rst.clear();
+    delay.block_ms(50);
+    phy_rst.set();
+
+}
+
+pub fn setup_phy(phy: &mut RT1062Device<0, 1536, 12, 12>){
+    let ctrl1 = phy.mdio_read(2, 0x1E);
+    let ctrl2 = phy.mdio_read(2, 0x1F);
+    let id = phy.mdio_read(2, 0x02);
+    log::info!("CTRL1:{ctrl1}, CTRL2:{ctrl2}, id:{id}");
+    //phy.mdio_write(0, 0x1F, );
+}

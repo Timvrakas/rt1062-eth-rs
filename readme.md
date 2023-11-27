@@ -10,7 +10,21 @@ python3 -m serial.tools.miniterm /dev/ttyACM0
 
 /home/timv/teensy_loader_cli/teensy_loader_cli --mcu TEENSY41 out.hex -w && sleep 1 && python3 -m serial.tools.miniterm /dev/ttyACM0
 
+cargo flash --example rt1176_evk_demo --features="imxrt1170evk" --release --target=thumbv7em-none-eabihf --chip=mimxrt1170 && miniterm /dev/ttyACM0 115200
+
+cargo build --example=rt1176_evk_demo --features=imxrt1170evk --target=thumbv7em-none-eabihf
+
+
+
 teensy_loader_cli --mcu TEENSY41 out.hex -w && sleep 1 && python3 -m serial.tools.miniterm /dev/tty.usbmodem2101
+
+### EVK
+export IMXRT_LOG_BUFFER_SIZE=8192
+cargo build --example=rt1176_evk_demo --features=imxrt1170evk --target=thumbv7em-none-eabihf
+pyocd load --target=mimxrt1170_cm7 --format=elf target/thumbv7em-none-eabihf/debug/examples/rt1176_evk_demo
+pyocd reset --target=mimxrt1170_cm7 -m hw
+pyocd gdbserver --target=mimxrt1170_cm7
+miniterm /dev/ttyACM0 115200
 
 https://github.com/PaulStoffregen/teensy41_ethernet/blob/master/teensy41_ethernet.ino
 

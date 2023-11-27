@@ -118,6 +118,23 @@ pub fn configure_bus(run_mode: RunMode, ccm: &mut CCM) {
     configure_clock_root(2, &bus_selection(run_mode), ccm);
 }
 
+pub fn configure_enet1(ccm: &mut CCM) {
+    //I think we should be using the 500MHz PLL1...
+    configure_clock_root(51, &Selection{mux:2,source:ClockSource::RcOsc400MHz,divider:8}, ccm);
+
+    for offset in 52..=57 {
+        configure_clock_root(
+            offset,
+            &Selection {
+                mux: 0b001,
+                source: ClockSource::XtalOsc24MHz,
+                divider: 1,
+            },
+            ccm,
+        );
+    }
+}
+
 const fn gpt_selection<const N: u8>(run_mode: RunMode) -> Selection {
     match run_mode {
         // Same for all N.

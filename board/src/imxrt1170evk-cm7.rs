@@ -2,8 +2,8 @@
 
 use crate::{hal, iomuxc::imxrt1170 as iomuxc, ral, GPT1_DIVIDER, GPT2_DIVIDER, RUN_MODE};
 
-mod imxrt11xx {
-    pub(super) mod clock_tree;
+pub mod imxrt11xx {
+    pub mod clock_tree;
 }
 
 use imxrt11xx::clock_tree;

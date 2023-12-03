@@ -45,15 +45,25 @@ pub(crate) unsafe fn configure() {
     CLOCK_GATES
         .iter()
         .for_each(|locator| locator.set(&mut ccm, clock_gate::ON));
+
+
+    ral::modify_reg!(ral::ccm,ccm,LPCG112_DIRECT,ON:1);
+    ral::modify_reg!(ral::ccm,ccm,LPCG113_DIRECT,ON:1);
+    ral::modify_reg!(ral::ccm,ccm,LPCG114_DIRECT,ON:1);
+    ral::modify_reg!(ral::ccm,ccm,LPCG49_DIRECT,ON:1);
+    ral::modify_reg!(ral::ccm,ccm,LPCG50_DIRECT,ON:1);
 }
 
 fn prepare_clock_tree(ccm: &mut ral::ccm::CCM) {
+    clock_tree::configure_enet1(ccm);
     clock_tree::configure_bus(RUN_MODE, ccm);
     clock_tree::configure_gpt::<1>(RUN_MODE, ccm);
     clock_tree::configure_gpt::<2>(RUN_MODE, ccm);
     clock_tree::configure_lpuart::<{ CONSOLE_INSTANCE }>(RUN_MODE, ccm);
     clock_tree::configure_lpspi::<SPI_INSTANCE>(RUN_MODE, ccm);
     clock_tree::configure_lpi2c::<{ I2C_INSTANCE }>(RUN_MODE, ccm);
+
+
 }
 
 pub const PIT_FREQUENCY: u32 = clock_tree::bus_frequency(RUN_MODE);

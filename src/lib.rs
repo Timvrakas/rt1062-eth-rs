@@ -49,6 +49,16 @@ impl<'a, const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: us
         ral::modify_reg!(enet,device.enet_inst,TCR,FDEN:1); //enable full-duplex
         ral::modify_reg!(enet,device.enet_inst,TFWR,STRFWD:1); // store and fwd
 
+        let source_clock_hz: u32 = 200_000_000;
+        const SMI_MDC_FREQUENCY_HZ: u32 = 2_500_000;
+        let mii_speed =
+            (source_clock_hz + 2 * SMI_MDC_FREQUENCY_HZ - 1) / (2 * SMI_MDC_FREQUENCY_HZ) - 1;
+        let hold_time =
+            (10 + 1_000_000_000 / source_clock_hz - 1) / (1_000_000_000 / source_clock_hz) - 1;
+        // TODO no way to enable / disable the MII management frame preamble. Maybe a new method
+        // for the user?
+        ral::modify_reg!(enet, device.enet_inst, MSCR, HOLDTIME: hold_time, MII_SPEED: mii_speed);
+
         for (idx, element) in device.txdt.desc.iter_mut().enumerate() {
             element.buffer = addr_of!(device.txdt.bufs[idx][0]);
         }
@@ -114,6 +124,7 @@ impl<const INST: u8, const MTU: usize, const RX_LEN: usize, const TX_LEN: usize>
     fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         let rxd = &mut self.rxdt.desc[self.rx_pos];
         if (rxd.flags & 0x8000) == 0 {
+            log::info!("Got a frame!");
             let ret = Some((
                 RT1062RxToken {
                     rx_pos: &mut self.rx_pos,
@@ -168,6 +179,7 @@ impl<'a, const MTU: usize, const RX_LEN: usize> phy::RxToken for RT1062RxToken<'
         let rxd = &mut self.rxdt.desc[*self.rx_pos];
         let result = f(&mut self.rxdt.bufs[*self.rx_pos]);
         atomic::fence(atomic::Ordering::SeqCst);
+        log::info!("consumed pkt: {}",rxd.len);
         rxd.flags |= 0x8000;
         if *self.rx_pos < (self.rxdt.desc.len() - 1) {
             *self.rx_pos += 1;
@@ -191,7 +203,7 @@ impl<'a, const INST: u8, const MTU: usize, const TX_LEN: usize> phy::TxToken
     where
         F: FnOnce(&mut [u8]) -> R,
     {
-        let result = f(&mut self.txdt.bufs[*self.tx_pos]);
+        let result = f(&mut self.txdt.bufs[*self.tx_pos][0..len]);
         let desc: &mut TxDescriptor = &mut self.txdt.desc[*self.tx_pos];
         desc.len = len as u16;
         desc.flags |= 0x8C00;

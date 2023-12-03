@@ -99,12 +99,41 @@ fn configure_clock_root(offset: usize, selection: &Selection, ccm: &mut CCM) {
     ral::modify_reg!(ral::ccm::clockroot, clock_root, CLOCK_ROOT_CONTROL,
         DIV: selection.divider - 1,
         MUX: selection.mux);
-    while ral::read_reg!(
-        ral::ccm::clockroot,
-        clock_root,
-        CLOCK_ROOT_STATUS0,
-        CHANGING == 1
-    ) {}
+    loop
+    {
+        let x = ral::read_reg!(
+            ral::ccm::clockroot,
+            clock_root,
+            CLOCK_ROOT_STATUS0);
+        if x & 0x80000000 == 0 {
+            break;
+        }
+    }
+}
+
+
+#[inline(always)]
+fn configure_clock_off(offset: usize, ccm: &mut CCM) {
+    let clock_root = &ccm.CLOCK_ROOT[offset];
+    ral::modify_reg!(ral::ccm::clockroot, clock_root, CLOCK_ROOT_CONTROL,
+        OFF: 1);
+    loop
+    {
+        let x = ral::read_reg!(
+            ral::ccm::clockroot,
+            clock_root,
+            CLOCK_ROOT_STATUS0);
+        if x & 0x80000000 == 0 {
+            break;
+        }
+    }
+}
+
+#[inline(always)]
+pub fn configure_clock_on(offset: usize, ccm: &mut CCM) {
+    let clock_root = &ccm.CLOCK_ROOT[offset];
+    ral::modify_reg!(ral::ccm::clockroot, clock_root, CLOCK_ROOT_CONTROL,
+        OFF: 0);
 }
 
 /// Set the bus clock (IPG) configuration for the Cortex M7.
@@ -120,7 +149,9 @@ pub fn configure_bus(run_mode: RunMode, ccm: &mut CCM) {
 
 pub fn configure_enet1(ccm: &mut CCM) {
     //I think we should be using the 500MHz PLL1...
-    configure_clock_root(51, &Selection{mux:2,source:ClockSource::RcOsc400MHz,divider:8}, ccm);
+    ral::modify_reg!(ral::ccm,ccm,LPCG112_DIRECT,ON:0);
+    configure_clock_off(51, ccm);
+    configure_clock_root(51, &Selection{mux:0b110,source:ClockSource::SysPll1,divider:4}, ccm);
 
     for offset in 52..=57 {
         configure_clock_root(

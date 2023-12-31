@@ -184,7 +184,6 @@ pub fn start_pll1(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller:
     let anadig_pmu = unsafe {ral::anadig_pmu::ANADIG_PMU::instance()};
     let anadig_pll = unsafe {ral::anadig_pll::ANADIG_PLL::instance()};
 
-
     //ENABLE LDO
     ral::write_reg!(ral::anadig_misc,anadig_misc,VDDSOC_AI_CTRL,VDDSOC_AIRWB:0,VDDSOC_AI_ADDR:0x0); //Setting CTRL0
     ral::write_reg!(ral::anadig_misc,anadig_misc,VDDSOC_AI_WDATA,0x01|0x04|0x100); //CTRL0 Values
@@ -193,14 +192,10 @@ pub fn start_pll1(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller:
     delay.block_us(100);
     ral::modify_reg!(ral::anadig_pmu,anadig_pmu,PMU_REF_CTRL,EN_PLL_VOL_REF_BUFFER:1); //enable voltage ref buffer
 
-
     log::info!("Initial Config");
     dump_ai_regs();
 
-    //ENABLE BYPASS
-
     ai_write_vddsoc2(0, 0x01_0000); // clear register, enable bypass
-
     ral::modify_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,ENABLE_CLK:1); //enable pll output
 
     let denominator: u32 = 268435455;
@@ -245,7 +240,6 @@ pub fn start_pll1(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller:
 
 }
 
-
 pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: &mut Poller){
 
     //Enable clock distro, both to the ethernet MAC and out the PHY pins
@@ -253,72 +247,12 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     let mux_gpr1 = unsafe { ral::iomuxc_gpr::IOMUXC_GPR::instance() };
     let mux1 = unsafe { ral::iomuxc::IOMUXC::instance() };
 
-    
-    let anadig_pll = unsafe {ral::anadig_pll::ANADIG_PLL::instance()};
-    let anadig_misc = unsafe {ral::anadig_misc::ANADIG_MISC::instance()};
-    let anadig_pmu = unsafe {ral::anadig_pmu::ANADIG_PMU::instance()};
-    let gpc_cpu = unsafe {ral::gpc_cpu_mode_ctrl_::GPC_CPU_MODE_CTRL_0::instance()};
-    let gpc_sp = unsafe {ral::gpc_set_point_ctrl::GPC_SET_POINT_CTRL::instance()};
-
-    // //ENABLE LDO
-    // ral::write_reg!(ral::anadig_misc,anadig_misc,VDDSOC_AI_CTRL,VDDSOC_AIRWB:0,VDDSOC_AI_ADDR:0x0); //Setting CTRL0
-    // ral::write_reg!(ral::anadig_misc,anadig_misc,VDDSOC_AI_WDATA,0x01|0x04|0x100); //CTRL0 Values
-    // let x = ral::read_reg!(ral::anadig_pmu,anadig_pmu,PMU_LDO_PLL,LDO_PLL_AI_TOGGLE);
-    // ral::modify_reg!(ral::anadig_pmu,anadig_pmu,PMU_LDO_PLL,LDO_PLL_AI_TOGGLE:!x); //toggle to write
-    // delay.block_us(100);
-    // ral::modify_reg!(ral::anadig_pmu,anadig_pmu,PMU_REF_CTRL,EN_PLL_VOL_REF_BUFFER:1); //enable voltage ref buffer
-
     start_pll1(delay,poller);
 
-    // //1000MHz/24MHz = 41+(2/3)
-    // ral::write_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_DIV_SELECT,41);
-    // ral::write_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_NUMERATOR,  0xAAAAAAA);
-    // ral::write_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_DENOMINATOR,0xFFFFFFF);
-
-    // ral::modify_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,
-    //     SYS_PLL1_CONTROL_MODE:1,
-    //     SYS_PLL1_DIV2_CONTROL_MODE:1,
-    //     SYS_PLL1_DIV5_CONTROL_MODE:1,
-    //     SYS_PLL1_DIV2:1,
-    //     SYS_PLL1_DIV5:1);
-
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_DIRECT, ON:1);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_DIRECT, ON:1);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_DIRECT, ON:1);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_DIRECT, ON:1);
-
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
-
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
-
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
-    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
-
-    // ral::modify_reg!(ral::gpc_cpu_mode_ctrl_, gpc_cpu,CM_SP_CTRL, CPU_SP_RUN:0, CPU_SP_RUN_EN:1);
-
-
-    loop{ // Wait for Stable
-        if ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,SYS_PLL1_STABLE) == 1 {
-            break;
-        }
-    }
-    
-    ral::modify_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,SYS_PLL1_GATE:0);
-
     poller.poll();
     delay.block_ms(1000);
     poller.poll();
     delay.block_ms(1000);
-
-
 
     use hal::ccm::output_source::{clko1};
     use board::clock_out::{CLKO1_SELECTIONS};
@@ -349,27 +283,35 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_02,MUX_MODE:1,SION:0); //TXD0
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_02,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_02, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_03,MUX_MODE:1,SION:0); //TXD1
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_03,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_03, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_04,MUX_MODE:1,SION:0); //TXEN
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_04,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_04, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_05,MUX_MODE:2,SION:1); //REF_CLK (50MHz out)
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_05,SRE:1,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_05, SRE: SRE_1_FAST_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_06,MUX_MODE:1,SION:1); //RXD0
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_06,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_06, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_07,MUX_MODE:1,SION:1); //RXD1
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_07,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_07, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_08,MUX_MODE:1,SION:0); //RX_DV
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_08,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_08, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_DISP_B2_09,MUX_MODE:1,SION:0); //RX_ER
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_DISP_B2_09,SRE:0,DSE:1);
+    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_09, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_AD_32,MUX_MODE:3,SION:0); //MDC (1.5k PU on evk)
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_AD_32,SRE:0,DSE:1);
@@ -377,26 +319,9 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     ral::write_reg!(ral::iomuxc,mux1,SW_MUX_CTL_PAD_GPIO_AD_33,MUX_MODE:3,SION:0); //MDIO (1.5k PU on evk)
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_AD_33,SRE:0,DSE:1);
 
-
-
     let mut pads = hal::iomuxc::into_pads(
         unsafe { ral::iomuxc::Instance::instance() },
         unsafe { ral::iomuxc_lpsr::Instance::instance()});
-
-
-    //
-    // Pad configurations
-    //
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_02, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_03, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_04, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
-
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_05, SRE: SRE_1_FAST_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_0_PULL_DISABLE__HIGHZ, ODE: ODE_0_DISABLED);
-
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_06, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_07, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_08, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
-    ral::write_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_DISP_B2_09, SRE: SRE_0_SLOW_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER, PUE: PUE_1_PULL_ENABLE, PUS: PUS_0_WEAK_PULL_DOWN, ODE: ODE_0_DISABLED);
 
     //
     // Input daisies
@@ -426,8 +351,6 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     phy_rst.set();
     delay.block_ms(500);
 
-    // let ccm_enet_25mh_ref = gpio9.output(pads.gpio_ad.p14);
-    // ccm_enet_25mh_ref.set();
     ral::modify_reg!(ral::iomuxc, mux1, SW_PAD_CTL_PAD_GPIO_AD_14, SRE: SRE_1_FAST_SLEW_RATE, DSE: DSE_1_HIGH_DRIVER);
     hal::iomuxc::alternate(&mut pads.gpio_ad.p14, 9);
 

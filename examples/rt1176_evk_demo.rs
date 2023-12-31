@@ -169,14 +169,17 @@ pub fn ai_write_vddsoc2(addr: u32, data: u32){
     }
 }
 
+pub fn dump_ai_regs(){
+    let ctrl0_read = ai_read_vddsoc2(0);
+    let ctrl1_read = ai_read_vddsoc2(16);
+    let ctrl2_read = ai_read_vddsoc2(32);
+    let ctrl3_read = ai_read_vddsoc2(48);
+    log::info!("CTRL0:{:#08x}, CTRL1:{:#08x}, CTRL2:{:#08x}, CTRL3:{:#08x}",ctrl0_read,ctrl1_read,ctrl2_read,ctrl3_read);
+    let anadig_pll = unsafe {ral::anadig_pll::ANADIG_PLL::instance()};
+    log::info!("SYS_PLL1_CTRL:{:#08x}",ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL));
+}
 
-pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: &mut Poller){
-
-    //Enable clock distro, both to the ethernet MAC and out the PHY pins
-    let mut ccm1 = unsafe { ral::ccm::CCM::instance() };
-    let mux_gpr1 = unsafe { ral::iomuxc_gpr::IOMUXC_GPR::instance() };
-    let mux1 = unsafe { ral::iomuxc::IOMUXC::instance() };
-
+pub fn start_pll1(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: &mut Poller){
     let anadig_misc = unsafe {ral::anadig_misc::ANADIG_MISC::instance()};
     let anadig_pmu = unsafe {ral::anadig_pmu::ANADIG_PMU::instance()};
     let anadig_pll = unsafe {ral::anadig_pll::ANADIG_PLL::instance()};
@@ -190,14 +193,9 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     delay.block_us(100);
     ral::modify_reg!(ral::anadig_pmu,anadig_pmu,PMU_REF_CTRL,EN_PLL_VOL_REF_BUFFER:1); //enable voltage ref buffer
 
-    let ctrl0_read = ai_read_vddsoc2(0);
-    let ctrl1_read = ai_read_vddsoc2(16);
-    let ctrl2_read = ai_read_vddsoc2(32);
-    let ctrl3_read = ai_read_vddsoc2(48);
 
     log::info!("Initial Config");
-    log::info!("CTRL0:{:#08x}, CTRL1:{:#08x}, CTRL2:{:#08x}, CTRL3:{:#08x}",ctrl0_read,ctrl1_read,ctrl2_read,ctrl3_read);
-    log::info!("SYS_PLL1_CTRL:{:#08x}",ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL));
+    dump_ai_regs();
 
     //ENABLE BYPASS
 
@@ -212,17 +210,10 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
 
     ai_write_vddsoc2(48, denominator); //CTRL3
     ai_write_vddsoc2(32, numerator); //CTRL2
-    //ai_write_vddsoc2(4, div); //CTRL0 (sets lower 7 bits)
     ai_write_vddsoc2(0, 0x01_0029);
-    //post_div is 0
 
-    let ctrl0_read = ai_read_vddsoc2(0);
-    let ctrl1_read = ai_read_vddsoc2(16);
-    let ctrl2_read = ai_read_vddsoc2(32);
-    let ctrl3_read = ai_read_vddsoc2(48);
     log::info!("Middle Config");
-    log::info!("CTRL0:{:#08x}, CTRL1:{:#08x}, CTRL2:{:#08x}, CTRL3:{:#08x}",ctrl0_read,ctrl1_read,ctrl2_read,ctrl3_read);
-    log::info!("SYS_PLL1_CTRL:{:#08x}",ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL));
+    dump_ai_regs();
 
     poller.poll();
     delay.block_ms(1);
@@ -234,7 +225,7 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     ai_write_vddsoc2(0, 0x41_6029); // HOLD_RING_OFF
     delay.block_us(225);
     ai_write_vddsoc2(0, 0x41_4029); // HOLD_RING_OFF
-    
+
 
     loop{ // Wait for Stable
         if ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,SYS_PLL1_STABLE) == 1 {
@@ -246,18 +237,81 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     ai_write_vddsoc2(0, 0x41_C029);
 
     ral::modify_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,SYS_PLL1_GATE:0,SYS_PLL1_DIV2:1,SYS_PLL1_DIV5:1); //disable gate, enable div2
-    
+
     ai_write_vddsoc2(0, 0x40_C029); // disable bypass
 
-    let ctrl0_read = ai_read_vddsoc2(0);
-    let ctrl1_read = ai_read_vddsoc2(16);
-    let ctrl2_read = ai_read_vddsoc2(32);
-    let ctrl3_read = ai_read_vddsoc2(48);
-    
     log::info!("Final Config");
-    log::info!("CTRL0:{:#08x}, CTRL1:{:#08x}, CTRL2:{:#08x}, CTRL3:{:#08x}",ctrl0_read,ctrl1_read,ctrl2_read,ctrl3_read);
-    log::info!("SYS_PLL1_CTRL:{:#08x}",ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL));
+    dump_ai_regs();
 
+}
+
+
+pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: &mut Poller){
+
+    //Enable clock distro, both to the ethernet MAC and out the PHY pins
+    let mut ccm1 = unsafe { ral::ccm::CCM::instance() };
+    let mux_gpr1 = unsafe { ral::iomuxc_gpr::IOMUXC_GPR::instance() };
+    let mux1 = unsafe { ral::iomuxc::IOMUXC::instance() };
+
+    
+    let anadig_pll = unsafe {ral::anadig_pll::ANADIG_PLL::instance()};
+    let anadig_misc = unsafe {ral::anadig_misc::ANADIG_MISC::instance()};
+    let anadig_pmu = unsafe {ral::anadig_pmu::ANADIG_PMU::instance()};
+    let gpc_cpu = unsafe {ral::gpc_cpu_mode_ctrl_::GPC_CPU_MODE_CTRL_0::instance()};
+    let gpc_sp = unsafe {ral::gpc_set_point_ctrl::GPC_SET_POINT_CTRL::instance()};
+
+    // //ENABLE LDO
+    // ral::write_reg!(ral::anadig_misc,anadig_misc,VDDSOC_AI_CTRL,VDDSOC_AIRWB:0,VDDSOC_AI_ADDR:0x0); //Setting CTRL0
+    // ral::write_reg!(ral::anadig_misc,anadig_misc,VDDSOC_AI_WDATA,0x01|0x04|0x100); //CTRL0 Values
+    // let x = ral::read_reg!(ral::anadig_pmu,anadig_pmu,PMU_LDO_PLL,LDO_PLL_AI_TOGGLE);
+    // ral::modify_reg!(ral::anadig_pmu,anadig_pmu,PMU_LDO_PLL,LDO_PLL_AI_TOGGLE:!x); //toggle to write
+    // delay.block_us(100);
+    // ral::modify_reg!(ral::anadig_pmu,anadig_pmu,PMU_REF_CTRL,EN_PLL_VOL_REF_BUFFER:1); //enable voltage ref buffer
+
+    start_pll1(delay,poller);
+
+    // //1000MHz/24MHz = 41+(2/3)
+    // ral::write_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_DIV_SELECT,41);
+    // ral::write_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_NUMERATOR,  0xAAAAAAA);
+    // ral::write_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_DENOMINATOR,0xFFFFFFF);
+
+    // ral::modify_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,
+    //     SYS_PLL1_CONTROL_MODE:1,
+    //     SYS_PLL1_DIV2_CONTROL_MODE:1,
+    //     SYS_PLL1_DIV5_CONTROL_MODE:1,
+    //     SYS_PLL1_DIV2:1,
+    //     SYS_PLL1_DIV5:1);
+
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_DIRECT, ON:1);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_DIRECT, ON:1);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_DIRECT, ON:1);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_DIRECT, ON:1);
+
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_DOMAIN, LEVEL:4, LEVEL0:4, LEVEL1:4, LEVEL2:4, LEVEL3:4);
+
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_SETPOINT, SETPOINT:0xFFFF);
+
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[21], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[22], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[23], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
+    // ral::modify_reg!(ral::ccm::oscpll, &ccm1.OSCPLL[24], OSCPLL_AUTHEN, CPULPM:1, SETPOINT_MODE:1, DOMAIN_MODE:1);
+
+    // ral::modify_reg!(ral::gpc_cpu_mode_ctrl_, gpc_cpu,CM_SP_CTRL, CPU_SP_RUN:0, CPU_SP_RUN_EN:1);
+
+
+    loop{ // Wait for Stable
+        if ral::read_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,SYS_PLL1_STABLE) == 1 {
+            break;
+        }
+    }
+    
+    ral::modify_reg!(ral::anadig_pll,anadig_pll,SYS_PLL1_CTRL,SYS_PLL1_GATE:0);
 
     poller.poll();
     delay.block_ms(1000);
@@ -284,21 +338,6 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     ral::modify_reg!(ral::ccm,ccm1,LPCG50_DIRECT,ON:1);
 
     //WE HAVE THE CLOCKS! (we do not) (it's so over) (we're not back at all)
-
-    /*
-    [INFO rt1176_evk_demo]: Initial Config
-    [INFO rt1176_evk_demo]: CTRL0:0x000000, CTRL1:0x000000, CTRL2:0x000000, CTRL3:0x000000
-    [INFO rt1176_evk_demo]: SYS_PLL1_CTRL:0x40004000
-
-    [INFO rt1176_evk_demo]: Middle Config
-    [INFO rt1176_evk_demo]: CTRL0:0xaabaaab, CTRL1:0x000000, CTRL2:0xaaaaaaa, CTRL3:0xfffffff
-    [INFO rt1176_evk_demo]: SYS_PLL1_CTRL:0x40006000
-
-    [INFO rt1176_evk_demo]: Final Config
-    [INFO rt1176_evk_demo]: CTRL0:0xaeacaab, CTRL1:0x000000, CTRL2:0xaaaaaaa, CTRL3:0xfffffff
-    [INFO rt1176_evk_demo]: SYS_PLL1_CTRL:0x62002000
-
-    */
 
     // send refclock to pinmux
     ral::modify_reg!(iomuxc_gpr,mux_gpr1,GPR4,ENET_REF_CLK_DIR:1);
@@ -339,7 +378,7 @@ pub fn setup_mac(delay:&mut Blocking<hal::gpt::Gpt<1>, GPT1_FREQUENCY>, poller: 
     // ral::write_reg!(ral::iomuxc,mux1,SW_PAD_CTL_PAD_GPIO_AD_33,SRE:0,DSE:1);
 
 
-    
+
     let mut pads = hal::iomuxc::into_pads(
         unsafe { ral::iomuxc::Instance::instance() },
         unsafe { ral::iomuxc_lpsr::Instance::instance()});
